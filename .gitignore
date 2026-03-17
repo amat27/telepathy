@@ -1,0 +1,18 @@
+node_modules/
+out/
+dist/
+test-screenshots/
+*.png
+*.jpeg
+*.jpg
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# OpenCode
+.opencode/

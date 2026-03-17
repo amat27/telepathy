@@ -1,0 +1,42 @@
+{
+  "name": "telepathy",
+  "version": "0.1.0",
+  "description": "Code structure visualization tool - like Sourcetrail",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "rebuild-native": "electron-rebuild -f -w better-sqlite3"
+  },
+  "keywords": [
+    "sourcetrail",
+    "code-visualization",
+    "call-graph"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@electron-toolkit/utils": "^4.0.0",
+    "@xyflow/react": "^12.10.1",
+    "allotment": "^1.20.5",
+    "better-sqlite3": "^12.8.0",
+    "fuse.js": "^7.1.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.0.8",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^41.0.2",
+    "electron-vite": "^5.0.0",
+    "playwright": "^1.58.2",
+    "typescript": "^5.8.3",
+    "vite": "^7.3.1"
+  }
+}

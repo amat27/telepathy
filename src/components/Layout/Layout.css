@@ -1,0 +1,9 @@
+.main-layout {
+  flex: 1;
+  overflow: hidden;
+}
+
+.panel {
+  height: 100%;
+  overflow: hidden;
+}

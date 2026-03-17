@@ -1,0 +1,76 @@
+/* ============================================================
+   Telepathy - Global Styles
+   Dark theme inspired by Sourcetrail
+   ============================================================ */
+
+:root {
+  --bg-primary: #1e1e2e;
+  --bg-secondary: #181825;
+  --bg-surface: #252536;
+  --bg-hover: #313244;
+  --bg-active: #45475a;
+
+  --text-primary: #cdd6f4;
+  --text-secondary: #a6adc8;
+  --text-muted: #6c7086;
+  --text-accent: #89b4fa;
+
+  --border-color: #313244;
+  --border-focus: #89b4fa;
+
+  --color-class: #f9e2af;
+  --color-struct: #a6e3a1;
+  --color-function: #89b4fa;
+  --color-member: #cba6f7;
+  --color-enum: #fab387;
+  --color-namespace: #94e2d5;
+  --color-typedef: #f38ba8;
+  --color-macro: #eba0ac;
+  --color-inherit-edge: #f9e2af;
+  --color-call-edge: #89b4fa;
+
+  --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+  --font-ui: 'Segoe UI', -apple-system, sans-serif;
+
+  --panel-radius: 6px;
+  --node-radius: 8px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-active);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ---- Allotment overrides ---- */
+.sash-container .sash {
+  background: var(--border-color) !important;
+}
+.sash-container .sash:hover {
+  background: var(--border-focus) !important;
+}
