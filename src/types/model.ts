@@ -27,6 +27,7 @@ export enum EdgeKind {
   CalledBy = 'called_by',      // A is called by B
   Overrides = 'overrides',     // A overrides B
   References = 'references',   // A references B
+  UsesType = 'uses_type',      // member of A has type B
 }
 
 export interface SourceLocation {
@@ -48,6 +49,7 @@ export interface CodeSymbol {
   signature?: string           // full type signature
   parentId?: string            // containing symbol id
   inheritedFrom?: string       // base class name (if inherited member)
+  typeClassId?: string         // resolved class id for return type / field type
 }
 
 export interface SymbolEdge {

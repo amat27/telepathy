@@ -177,6 +177,7 @@ function buildFlowElements(
 
   const baseIds = new Set<string>()
   const derivedIds = new Set<string>()
+  const typeIds = new Set<string>()
 
   for (const edge of graph.edges) {
     if (edge.kind === EdgeKind.Inherits) {
@@ -185,6 +186,8 @@ function buildFlowElements(
       } else if (edge.target === selectedClassId) {
         derivedIds.add(edge.source)
       }
+    } else if (edge.kind === EdgeKind.UsesType) {
+      typeIds.add(edge.target)
     }
   }
 
@@ -239,6 +242,34 @@ function buildFlowElements(
       },
     })
 
+    // Determine which type class IDs are "active" (referenced by visible members)
+    const activeTypeIds = new Set<string>()
+    for (const m of displayMembers) {
+      if (m.typeClassId && typeIds.has(m.typeClassId)
+        && !baseIds.has(m.typeClassId) && !derivedIds.has(m.typeClassId)
+        && m.typeClassId !== selectedClassId) {
+        activeTypeIds.add(m.typeClassId)
+      }
+    }
+
+    // Position type-reference nodes to the right of center
+    const typeNodesList = graph.nodes.filter(n => activeTypeIds.has(n.id))
+    const typeStartY = VERTICAL_GAP + (estimatedHeight - typeNodesList.length * 80) / 2
+    const TYPE_X_OFFSET = 360
+    typeNodesList.forEach((n, i) => {
+      flowNodes.push({
+        id: n.id,
+        type: 'classNode',
+        position: { x: TYPE_X_OFFSET, y: Math.max(VERTICAL_GAP, typeStartY + i * 80) },
+        data: {
+          label: n.name,
+          kind: n.kind,
+          memberCount: n.members?.length,
+          isRoot: false,
+        },
+      })
+    })
+
     // Position derived below the expanded node
     const derived = graph.nodes.filter(n => derivedIds.has(n.id))
     const derivedY = VERTICAL_GAP + estimatedHeight + 40
@@ -258,28 +289,39 @@ function buildFlowElements(
     })
   }
 
-  // Edges
-  const flowEdges: Edge[] = graph.edges.map(e => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    type: 'smoothstep',
-    animated: false,
-    style: {
-      stroke: e.kind === EdgeKind.Inherits
-        ? 'var(--color-inherit-edge)'
-        : 'var(--color-call-edge)',
-      strokeWidth: 2,
-    },
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: e.kind === EdgeKind.Inherits
-        ? 'var(--color-inherit-edge)'
-        : 'var(--color-call-edge)',
-    },
-    label: e.kind === EdgeKind.Inherits ? 'inherits' : e.kind,
-    labelStyle: { fill: 'var(--text-muted)', fontSize: 10 },
-  }))
+  // Edges — filter out UsesType edges for inactive type nodes
+  const activeNodeIds = new Set(flowNodes.map(n => n.id))
+  const flowEdges: Edge[] = graph.edges
+    .filter(e => activeNodeIds.has(e.source) && activeNodeIds.has(e.target))
+    .map(e => {
+      const isUsesType = e.kind === EdgeKind.UsesType
+      return {
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: 'smoothstep',
+        animated: isUsesType,
+        style: {
+          stroke: isUsesType
+            ? 'var(--color-type-edge)'
+            : e.kind === EdgeKind.Inherits
+              ? 'var(--color-inherit-edge)'
+              : 'var(--color-call-edge)',
+          strokeWidth: isUsesType ? 1.5 : 2,
+          strokeDasharray: isUsesType ? '6 3' : undefined,
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: isUsesType
+            ? 'var(--color-type-edge)'
+            : e.kind === EdgeKind.Inherits
+              ? 'var(--color-inherit-edge)'
+              : 'var(--color-call-edge)',
+        },
+        label: isUsesType ? 'type' : e.kind === EdgeKind.Inherits ? 'inherits' : e.kind,
+        labelStyle: { fill: 'var(--text-muted)', fontSize: 10 },
+      }
+    })
 
   return { nodes: flowNodes, edges: flowEdges }
 }

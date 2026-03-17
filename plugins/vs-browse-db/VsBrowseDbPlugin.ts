@@ -89,6 +89,7 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
   private stmtSearchSymbols!: Database.Statement
   private stmtGetFile!: Database.Statement
   private stmtGetItem!: Database.Statement
+  private stmtResolveType!: Database.Statement
 
   async initialize(config: PluginConfig): Promise<void> {
     const dbPath = config.dataPath
@@ -224,6 +225,13 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
              ci.start_line, ci.start_column, ci.end_line, ci.end_column
       FROM code_items ci WHERE ci.id = ?
     `)
+
+    // Resolve a type name to a class/struct id
+    this.stmtResolveType = db.prepare(`
+      SELECT id, kind, name FROM code_items
+      WHERE name = ? AND kind IN (1, 2)
+      ORDER BY id LIMIT 1
+    `)
   }
 
   private buildFileCache(): void {
@@ -236,6 +244,83 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
 
   private resolveFile(fileId: number): string {
     return this.fileCache.get(fileId) ?? `<unknown file ${fileId}>`
+  }
+
+  // ---- Type resolution ----
+
+  private static readonly PRIMITIVE_TYPES = new Set([
+    'void', 'bool', 'char', 'int', 'float', 'double',
+    'short', 'long', 'unsigned', 'signed', 'size_t', 'ptrdiff_t',
+    'int8_t', 'int16_t', 'int32_t', 'int64_t',
+    'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t',
+    'auto', 'nullptr_t', 'wchar_t', 'char16_t', 'char32_t',
+    'BOOL', 'BYTE', 'WORD', 'DWORD', 'LONG', 'ULONG', 'HRESULT',
+    'HANDLE', 'LPVOID', 'LPCSTR', 'LPCWSTR', 'LPSTR', 'LPWSTR',
+  ])
+
+  private static readonly SKIP_TOKENS = new Set([
+    'const', 'volatile', 'static', 'inline', 'virtual',
+    'explicit', 'mutable', 'constexpr', 'typename', 'class', 'struct',
+    'enum', 'union', 'register', 'extern', 'noexcept', 'override',
+    'std', 'string', 'wstring', 'basic_string',
+    'vector', 'map', 'set', 'unordered_map', 'unordered_set',
+    'list', 'deque', 'array', 'pair', 'tuple',
+    'shared_ptr', 'unique_ptr', 'weak_ptr', 'optional',
+    'allocator', 'less', 'greater', 'hash', 'equal_to',
+    'iterator', 'const_iterator', 'reverse_iterator',
+    'true_type', 'false_type', 'integral_constant',
+    'enable_if', 'enable_if_t', 'conditional', 'conditional_t',
+  ])
+
+  /**
+   * Parse a C++ type string and try to resolve it to a class/struct ID in the DB.
+   * Returns the class ID if found, null otherwise.
+   */
+  private resolveTypeToClassId(typeStr: string | undefined): string | null {
+    if (!typeStr) return null
+
+    // Clean control chars, pointers, references, parens
+    const clean = typeStr.replace(/[\x00-\x1f*&()[\]]/g, ' ').trim()
+    if (!clean) return null
+
+    // Extract all identifier-like tokens (including :: separated)
+    const tokens = clean.match(/[a-zA-Z_]\w*(?:::[a-zA-Z_]\w*)*/g)
+    if (!tokens) return null
+
+    for (const token of tokens) {
+      // Get the last segment for namespace-qualified names
+      const parts = token.split('::')
+      const lastName = parts[parts.length - 1]
+
+      // Skip primitives, modifiers, and common STL types
+      if (VsBrowseDbPlugin.PRIMITIVE_TYPES.has(lastName)) continue
+      if (VsBrowseDbPlugin.SKIP_TOKENS.has(lastName)) continue
+
+      // Try full qualified name first, then just the last part
+      const candidates = parts.length > 1 ? [lastName, token] : [token]
+      for (const candidate of candidates) {
+        const row = this.stmtResolveType.get(candidate) as { id: number; kind: number; name: string } | undefined
+        if (row) return String(row.id)
+      }
+    }
+
+    return null
+  }
+
+  /**
+   * Resolve type class IDs on an array of member symbols (mutates in place).
+   * Returns the set of unique resolved type class IDs.
+   */
+  private resolveTypesOnMembers(members: CodeSymbol[]): Set<string> {
+    const typeClassIds = new Set<string>()
+    for (const m of members) {
+      const typeClassId = this.resolveTypeToClassId(m.returnType)
+      if (typeClassId) {
+        m.typeClassId = typeClassId
+        typeClassIds.add(typeClassId)
+      }
+    }
+    return typeClassIds
   }
 
   // ---- Mapping helpers ----
@@ -299,6 +384,9 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
     // Collect inherited members from base classes (recursive)
     const inheritedMembers = this.collectInheritedMembers(Number(classId), new Set<number>())
     members.push(...inheritedMembers)
+
+    // Resolve type class IDs on all members
+    this.resolveTypesOnMembers(members)
 
     return this.rowToSymbol(row, members)
   }
@@ -366,7 +454,16 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
 
     // Load members for the root class (so the expanded graph node shows them)
     const rootMemberRows = this.stmtGetMembers.all(rootRow.id) as CodeItemRow[]
-    const rootSymbol = this.rowToSymbol(rootRow, rootMemberRows.map(m => this.rowToSymbol(m)))
+    const rootMembers = rootMemberRows.map(m => this.rowToSymbol(m))
+
+    // Also collect inherited members for graph display
+    const inheritedMembers = this.collectInheritedMembers(Number(classId), new Set<number>())
+    rootMembers.push(...inheritedMembers)
+
+    // Resolve type class IDs on all members
+    const typeClassIds = this.resolveTypesOnMembers(rootMembers)
+
+    const rootSymbol = this.rowToSymbol(rootRow, rootMembers)
     nodes.push(rootSymbol)
     visited.add(classId)
 
@@ -415,6 +512,23 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
         target: classId,
         kind: EdgeKind.Inherits,
       })
+    }
+
+    // Add type-reference nodes for members whose types resolve to a class/struct
+    for (const typeId of typeClassIds) {
+      if (visited.has(typeId)) continue  // already in graph as base/derived
+      visited.add(typeId)
+
+      const typeRow = this.stmtGetItem.get(Number(typeId)) as CodeItemRow | undefined
+      if (typeRow) {
+        nodes.push(this.rowToSymbol(typeRow))
+        edges.push({
+          id: `edge_${classId}_uses_${typeId}`,
+          source: classId,
+          target: typeId,
+          kind: EdgeKind.UsesType,
+        })
+      }
     }
 
     return { nodes, edges }

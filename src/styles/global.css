@@ -28,6 +28,7 @@
   --color-macro: #eba0ac;
   --color-inherit-edge: #f9e2af;
   --color-call-edge: #89b4fa;
+  --color-type-edge: #cba6f7;
 
   --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
   --font-ui: 'Segoe UI', -apple-system, sans-serif;
