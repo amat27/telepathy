@@ -142,7 +142,8 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
     const db = this.db!
 
     // Get all classes/structs with member counts (kind 1=class, 2=struct)
-    // Filter out 0-member entries (forward decls, template instantiations)
+    // GROUP BY name+kind deduplicates forward decls; SQLite's MAX() bare-column
+    // guarantee ensures ci.id comes from the row with the most members.
     this.stmtGetClasses = db.prepare(`
       SELECT ci.id, ci.file_id, ci.parent_id, ci.kind, ci.name, ci.type,
              ci.start_line, ci.start_column, ci.end_line, ci.end_column,
@@ -183,28 +184,43 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
       ORDER BY ci.start_line
     `)
 
-    // Get base classes: deduplicated — pick first matching class per base marker
+    // Get base classes: deduplicated — pick the definition with the most members
+    // (forward declarations have 0 members, real definitions have many)
     this.stmtGetBases = db.prepare(`
       SELECT bcp.base_code_item_id, bcp.parent_code_item_id,
              base_marker.name as base_name,
              (SELECT bc.id FROM code_items bc
               WHERE bc.name = base_marker.name AND bc.kind IN (1, 2)
-              ORDER BY bc.id LIMIT 1) as base_class_id
+              ORDER BY (SELECT COUNT(*) FROM code_items m
+                        WHERE m.parent_id = bc.id AND m.kind NOT IN (9, 17)) DESC,
+                       bc.id
+              LIMIT 1) as base_class_id
       FROM base_class_parents bcp
       JOIN code_items base_marker ON base_marker.id = bcp.base_code_item_id
       WHERE bcp.parent_code_item_id = ?
     `)
 
     // Get derived classes: find all classes that list this class as a base
+    // GROUP BY name to deduplicate forward decls; pick row with most members
     this.stmtGetDerived = db.prepare(`
-      SELECT DISTINCT derived.id, derived.file_id, derived.parent_id,
+      SELECT derived.id, derived.file_id, derived.parent_id,
              derived.kind, derived.name, derived.type,
              derived.start_line, derived.start_column,
              derived.end_line, derived.end_column
-      FROM base_class_parents bcp
-      JOIN code_items base_marker ON base_marker.id = bcp.base_code_item_id
-      JOIN code_items derived ON derived.id = bcp.parent_code_item_id
-      WHERE base_marker.name = ?
+      FROM (
+        SELECT DISTINCT d.name as dname,
+               (SELECT best.id FROM code_items best
+                WHERE best.name = d.name AND best.kind IN (1, 2)
+                ORDER BY (SELECT COUNT(*) FROM code_items m
+                          WHERE m.parent_id = best.id AND m.kind NOT IN (9, 17)) DESC,
+                         best.id
+                LIMIT 1) as best_id
+        FROM base_class_parents bcp
+        JOIN code_items base_marker ON base_marker.id = bcp.base_code_item_id
+        JOIN code_items d ON d.id = bcp.parent_code_item_id
+        WHERE base_marker.name = ?
+      ) sub
+      JOIN code_items derived ON derived.id = sub.best_id
     `)
 
     // Search symbols by name (LIKE query, kinds 1,2,6,7,27)
@@ -226,11 +242,14 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
       FROM code_items ci WHERE ci.id = ?
     `)
 
-    // Resolve a type name to a class/struct id
+    // Resolve a type name to a class/struct id (prefer definition with most members)
     this.stmtResolveType = db.prepare(`
       SELECT id, kind, name FROM code_items
       WHERE name = ? AND kind IN (1, 2)
-      ORDER BY id LIMIT 1
+      ORDER BY (SELECT COUNT(*) FROM code_items m
+                WHERE m.parent_id = code_items.id AND m.kind NOT IN (9, 17)) DESC,
+               id
+      LIMIT 1
     `)
   }
 
