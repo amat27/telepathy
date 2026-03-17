@@ -118,6 +118,13 @@
   font-family: var(--font-mono);
 }
 
+.expanded-empty {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .expanded-section {
   border-bottom: 1px solid var(--border-color);
 }

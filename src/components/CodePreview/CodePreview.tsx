@@ -1,16 +1,29 @@
 // ============================================================
-// Code Preview (Right Panel) - Source code with member navigation
+// Code Preview (Right Panel) - Member list + source code
 // ============================================================
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState, useMemo, forwardRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { SymbolKind } from '../../types/model'
 import type { CodeSymbol } from '../../types/model'
 import './CodePreview.css'
 
+type SortKey = 'name' | 'kind' | 'line'
+type GroupMode = 'none' | 'kind'
+
 export function CodePreview() {
-  const { selectedClass, selectedMember, sourceCode, sourceFile, sourceLine, selectMember } = useAppStore()
+  const { selectedClass, selectedMember, selectedMembers, sourceCode, sourceFile, sourceLine, selectMember, toggleMember } = useAppStore()
   const sourceRef = useRef<HTMLPreElement>(null)
+
+  // Local UI state for member list controls
+  const [memberFilter, setMemberFilter] = useState('')
+  const [sortBy, setSortBy] = useState<SortKey>('line')
+  const [groupBy, setGroupBy] = useState<GroupMode>('none')
+
+  // Reset filter when class changes
+  useEffect(() => {
+    setMemberFilter('')
+  }, [selectedClass?.id])
 
   // Scroll to the highlighted line when source changes
   useEffect(() => {
@@ -22,16 +35,63 @@ export function CodePreview() {
     }
   }, [sourceCode, sourceLine])
 
+  // Filter + sort members
+  const processedMembers = useMemo(() => {
+    if (!selectedClass?.members) return []
+    let list = selectedClass.members
+
+    // Filter
+    if (memberFilter) {
+      const lc = memberFilter.toLowerCase()
+      list = list.filter(m =>
+        m.name.toLowerCase().includes(lc) ||
+        (m.returnType && m.returnType.toLowerCase().includes(lc))
+      )
+    }
+
+    // Sort
+    list = [...list].sort((a, b) => {
+      switch (sortBy) {
+        case 'name': return a.name.localeCompare(b.name)
+        case 'kind': return a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name)
+        case 'line': return (a.location?.line ?? 0) - (b.location?.line ?? 0)
+      }
+    })
+
+    return list
+  }, [selectedClass?.members, memberFilter, sortBy])
+
+  // Group members by kind
+  const groupedMembers = useMemo(() => {
+    if (groupBy === 'none') return null
+
+    const groups = new Map<string, CodeSymbol[]>()
+    for (const m of processedMembers) {
+      const key = kindGroupLabel(m.kind)
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(m)
+    }
+    return groups
+  }, [processedMembers, groupBy])
+
   if (!selectedClass) {
     return (
       <div className="code-preview-empty">
-        <p>Select a class to view source code</p>
+        <p>Select a class to view details</p>
       </div>
     )
   }
 
-  const handleMemberClick = (member: CodeSymbol) => {
-    selectMember(member)
+  const totalCount = selectedClass.members?.length ?? 0
+  const filteredCount = processedMembers.length
+
+  const handleMemberClick = (member: CodeSymbol, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl+click toggles selection for graph display
+      toggleMember(member)
+    } else {
+      selectMember(member)
+    }
   }
 
   return (
@@ -45,20 +105,72 @@ export function CodePreview() {
         )}
       </div>
 
-      {/* Members list */}
-      {selectedClass.members && selectedClass.members.length > 0 && (
+      {/* Members section */}
+      {totalCount > 0 && (
         <div className="members-section">
-          <div className="members-header">Members ({selectedClass.members.length})</div>
-          <div className="members-list">
-            {selectedClass.members.map(m => (
-              <MemberItem
-                key={m.id}
-                member={m}
-                isActive={selectedMember?.id === m.id}
-                onClick={() => handleMemberClick(m)}
-              />
-            ))}
+          <div className="members-toolbar">
+            <input
+              type="text"
+              className="member-filter"
+              placeholder="Filter members..."
+              value={memberFilter}
+              onChange={e => setMemberFilter(e.target.value)}
+            />
+            <div className="member-controls">
+              <select
+                className="member-sort"
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as SortKey)}
+                title="Sort by"
+              >
+                <option value="line">Line</option>
+                <option value="name">Name</option>
+                <option value="kind">Kind</option>
+              </select>
+              <button
+                className={`member-group-btn ${groupBy !== 'none' ? 'active' : ''}`}
+                onClick={() => setGroupBy(g => g === 'none' ? 'kind' : 'none')}
+                title="Group by kind"
+              >
+                G
+              </button>
+            </div>
+            <span className="member-stats">
+              {memberFilter ? `${filteredCount}/` : ''}{totalCount}
+            </span>
           </div>
+
+          <div className="members-list">
+            {groupBy === 'none' ? (
+              processedMembers.map(m => (
+                <MemberItem
+                  key={m.id}
+                  member={m}
+                  isActive={selectedMember?.id === m.id}
+                  isSelected={selectedMembers.has(m.id)}
+                  onClick={(e) => handleMemberClick(m, e)}
+                />
+              ))
+            ) : (
+              groupedMembers && Array.from(groupedMembers.entries()).map(([group, members]) => (
+                <div key={group} className="member-group">
+                  <div className="member-group-header">
+                    {group} <span className="member-group-count">{members.length}</span>
+                  </div>
+                  {members.map(m => (
+                    <MemberItem
+                      key={m.id}
+                      member={m}
+                      isActive={selectedMember?.id === m.id}
+                      isSelected={selectedMembers.has(m.id)}
+                      onClick={(e) => handleMemberClick(m, e)}
+                    />
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+          <div className="member-hint">Ctrl+Click to pin members to graph</div>
         </div>
       )}
 
@@ -74,9 +186,27 @@ export function CodePreview() {
   )
 }
 
-// ---- Source Code Viewer with line highlighting ----
+// ---- helpers ----
 
-import { forwardRef } from 'react'
+function kindGroupLabel(kind: SymbolKind): string {
+  switch (kind) {
+    case SymbolKind.MemberFunction:
+    case SymbolKind.Function:
+      return 'Methods'
+    case SymbolKind.Member:
+    case SymbolKind.Variable:
+      return 'Fields'
+    case SymbolKind.Enum:
+    case SymbolKind.Enumerator:
+      return 'Enums'
+    case SymbolKind.Typedef:
+      return 'Typedefs'
+    default:
+      return 'Other'
+  }
+}
+
+// ---- Source Code Viewer with line highlighting ----
 
 const SourceCodeView = forwardRef<HTMLPreElement, { code: string; highlightLine: number }>(
   ({ code, highlightLine }, ref) => {
@@ -88,7 +218,6 @@ const SourceCodeView = forwardRef<HTMLPreElement, { code: string; highlightLine:
       )
     }
 
-    // Parse "lineNum: content" format from the backend
     const lines = code.split('\n').map(raw => {
       const match = raw.match(/^(\d+): (.*)$/)
       if (match) {
@@ -119,27 +248,34 @@ SourceCodeView.displayName = 'SourceCodeView'
 
 // ---- Member Item ----
 
+const kindLabels: Record<string, string> = {
+  [SymbolKind.MemberFunction]: 'fn',
+  [SymbolKind.Function]: 'fn',
+  [SymbolKind.Member]: 'var',
+  [SymbolKind.Enum]: 'enum',
+  [SymbolKind.Typedef]: 'type',
+  [SymbolKind.Variable]: 'var',
+  [SymbolKind.Enumerator]: 'val',
+}
+
 function MemberItem({
   member,
   isActive,
+  isSelected,
   onClick,
 }: {
   member: CodeSymbol
   isActive: boolean
-  onClick: () => void
+  isSelected: boolean
+  onClick: (e: React.MouseEvent) => void
 }) {
-  const kindLabels: Record<string, string> = {
-    [SymbolKind.MemberFunction]: 'fn',
-    [SymbolKind.Function]: 'fn',
-    [SymbolKind.Member]: 'var',
-    [SymbolKind.Enum]: 'enum',
-    [SymbolKind.Typedef]: 'type',
-  }
-
   return (
-    <div className={`member-item ${isActive ? 'active' : ''}`} onClick={onClick}>
+    <div
+      className={`member-item ${isActive ? 'active' : ''} ${isSelected ? 'pinned' : ''}`}
+      onClick={onClick}
+    >
       <span className={`member-kind kind-${member.kind}`}>
-        {kindLabels[member.kind] ?? member.kind}
+        {kindLabels[member.kind] ?? '?'}
       </span>
       <span className="member-name">{member.name}</span>
       {member.location && (
@@ -148,6 +284,7 @@ function MemberItem({
       {member.returnType && (
         <span className="member-type">{member.returnType}</span>
       )}
+      {isSelected && <span className="pin-indicator">*</span>}
     </div>
   )
 }

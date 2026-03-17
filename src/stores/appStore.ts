@@ -20,8 +20,10 @@ interface AppState {
   selectedClass: CodeSymbol | null
   isLoadingDetail: boolean
 
-  // Selected member (for highlighting)
+  // Selected member (for highlighting / source jump)
   selectedMember: CodeSymbol | null
+  // Pinned members (for graph display via Ctrl+Click)
+  selectedMembers: Set<string>
 
   // Graph (center panel)
   graph: CodeGraph | null
@@ -42,6 +44,7 @@ interface AppState {
   loadClasses: (filter?: string) => Promise<void>
   selectClass: (classId: string) => Promise<void>
   selectMember: (member: CodeSymbol) => Promise<void>
+  toggleMember: (member: CodeSymbol) => void
   loadHierarchy: (classId: string) => Promise<void>
   loadSource: (file: string, line: number) => Promise<void>
   search: (query: string) => Promise<void>
@@ -60,6 +63,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoadingDetail: false,
 
   selectedMember: null,
+  selectedMembers: new Set<string>(),
 
   graph: null,
   isLoadingGraph: false,
@@ -96,7 +100,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   selectClass: async (classId: string) => {
-    set({ isLoadingDetail: true, isLoadingGraph: true, selectedMember: null })
+    set({ isLoadingDetail: true, isLoadingGraph: true, selectedMember: null, selectedMembers: new Set() })
     try {
       const [detail, graph] = await Promise.all([
         api.getClassDetail(classId),
@@ -124,6 +128,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (member.location) {
       await get().loadSource(member.location.file, member.location.line)
     }
+  },
+
+  toggleMember: (member: CodeSymbol) => {
+    const prev = get().selectedMembers
+    const next = new Set(prev)
+    if (next.has(member.id)) {
+      next.delete(member.id)
+    } else {
+      next.add(member.id)
+    }
+    set({ selectedMembers: next })
   },
 
   loadHierarchy: async (classId: string) => {

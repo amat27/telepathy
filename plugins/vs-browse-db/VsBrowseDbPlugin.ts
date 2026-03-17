@@ -264,8 +264,8 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
         endLine: row.end_line,
         endColumn: row.end_column,
       },
-      returnType: row.type ?? undefined,
-      signature: row.type ?? undefined,
+      returnType: row.type ? row.type.replace(/[\x00-\x1f]/g, '').trim() : undefined,
+      signature: row.type ? row.type.replace(/[\x00-\x1f]/g, '').trim() : undefined,
       parentId: row.parent_id ? String(row.parent_id) : undefined,
       members,
     }

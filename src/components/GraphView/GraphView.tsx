@@ -54,12 +54,13 @@ function ClassNode({ data }: NodeProps<Node<ClassNodeData>>) {
   )
 }
 
-// ---- Expanded Class Node (selected, shows members) ----
+// ---- Expanded Class Node (selected, shows pinned members) ----
 
 interface ExpandedNodeData {
   label: string
   kind: SymbolKind
   members: CodeSymbol[]
+  totalMemberCount: number
   selectedMemberId: string | null
   isRoot: true
   [key: string]: unknown
@@ -71,6 +72,8 @@ const kindLabels: Record<string, string> = {
   [SymbolKind.Member]: 'var',
   [SymbolKind.Enum]: 'enum',
   [SymbolKind.Typedef]: 'type',
+  [SymbolKind.Variable]: 'var',
+  [SymbolKind.Enumerator]: 'val',
 }
 
 function ExpandedClassNode({ data }: NodeProps<Node<ExpandedNodeData>>) {
@@ -84,11 +87,14 @@ function ExpandedClassNode({ data }: NodeProps<Node<ExpandedNodeData>>) {
     }
   }, [])
 
-  // Split members into functions and fields
-  const functions = data.members.filter(
+  const members = data.members
+  const hasPinned = members.length < data.totalMemberCount
+
+  // Split into functions and fields
+  const functions = members.filter(
     m => m.kind === SymbolKind.MemberFunction || m.kind === SymbolKind.Function
   )
-  const fields = data.members.filter(
+  const fields = members.filter(
     m => m.kind !== SymbolKind.MemberFunction && m.kind !== SymbolKind.Function
   )
 
@@ -100,8 +106,16 @@ function ExpandedClassNode({ data }: NodeProps<Node<ExpandedNodeData>>) {
           {data.kind === SymbolKind.Struct ? 'S' : 'C'}
         </span>
         <span className="node-label">{data.label}</span>
-        <span className="member-count-badge">{data.members.length}</span>
+        <span className="member-count-badge">
+          {hasPinned ? `${members.length}/${data.totalMemberCount}` : data.totalMemberCount}
+        </span>
       </div>
+
+      {members.length === 0 && (
+        <div className="expanded-empty">
+          {data.totalMemberCount} members (none pinned)
+        </div>
+      )}
 
       {fields.length > 0 && (
         <div className="expanded-section">
@@ -113,7 +127,7 @@ function ExpandedClassNode({ data }: NodeProps<Node<ExpandedNodeData>>) {
               onClick={(e) => { e.stopPropagation(); handleMemberClick(m) }}
             >
               <span className={`gm-kind kind-${m.kind}`}>
-                {kindLabels[m.kind] ?? m.kind}
+                {kindLabels[m.kind] ?? '?'}
               </span>
               <span className="gm-name" title={m.signature ?? m.name}>{m.name}</span>
               {m.returnType && <span className="gm-type">{m.returnType}</span>}
@@ -155,6 +169,7 @@ function buildFlowElements(
   graph: CodeGraph | null,
   selectedClassId: string | null,
   selectedMemberId: string | null,
+  pinnedMemberIds: Set<string>,
 ): { nodes: Node[]; edges: Edge[] } {
   if (!graph || graph.nodes.length === 0) {
     return { nodes: [], edges: [] }
@@ -198,9 +213,17 @@ function buildFlowElements(
   // Position selected class in center — expanded with members
   const selected = graph.nodes.find(n => n.id === selectedClassId)
   if (selected) {
-    const members = selected.members ?? []
-    // Estimate node height: header(40) + sections + member rows(24 each)
-    const estimatedHeight = 60 + members.length * 24 + 40
+    const allMembers = selected.members ?? []
+    // Show pinned members + currently selected member in graph
+    const visibleIds = new Set(pinnedMemberIds)
+    if (selectedMemberId) visibleIds.add(selectedMemberId)
+    const displayMembers = visibleIds.size > 0
+      ? allMembers.filter(m => visibleIds.has(m.id))
+      : []
+
+    // Estimate node height
+    const memberRows = displayMembers.length > 0 ? displayMembers.length : 1
+    const estimatedHeight = 60 + memberRows * 24 + 40
 
     flowNodes.push({
       id: selected.id,
@@ -209,7 +232,8 @@ function buildFlowElements(
       data: {
         label: selected.name,
         kind: selected.kind,
-        members,
+        members: displayMembers,
+        totalMemberCount: allMembers.length,
         selectedMemberId,
         isRoot: true,
       },
@@ -263,11 +287,11 @@ function buildFlowElements(
 // ---- Main Component ----
 
 export function GraphView() {
-  const { graph, selectedClass, selectedMember, isLoadingGraph, selectClass } = useAppStore()
+  const { graph, selectedClass, selectedMember, selectedMembers, isLoadingGraph, selectClass } = useAppStore()
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => buildFlowElements(graph, selectedClass?.id ?? null, selectedMember?.id ?? null),
-    [graph, selectedClass, selectedMember]
+    () => buildFlowElements(graph, selectedClass?.id ?? null, selectedMember?.id ?? null, selectedMembers),
+    [graph, selectedClass, selectedMember, selectedMembers]
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
@@ -295,7 +319,6 @@ export function GraphView() {
   if (!graph || graph.nodes.length === 0) {
     return (
       <div className="graph-placeholder">
-        <div className="placeholder-icon">&#x1F578;</div>
         <p>Select a class to view its hierarchy</p>
       </div>
     )
