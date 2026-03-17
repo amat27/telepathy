@@ -34,6 +34,10 @@ interface AppState {
   sourceFile: string | null
   sourceLine: number
 
+  // Navigation history
+  navBackStack: string[]     // class IDs
+  navForwardStack: string[]  // class IDs
+
   // Search
   searchQuery: string
   searchResults: SymbolSummary[]
@@ -49,6 +53,8 @@ interface AppState {
   loadSource: (file: string, line: number) => Promise<void>
   search: (query: string) => Promise<void>
   setClassFilter: (filter: string) => void
+  goBack: () => Promise<void>
+  goForward: () => Promise<void>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -71,6 +77,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   sourceCode: '',
   sourceFile: null,
   sourceLine: 0,
+
+  navBackStack: [],
+  navForwardStack: [],
 
   searchQuery: '',
   searchResults: [],
@@ -100,6 +109,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   selectClass: async (classId: string) => {
+    // Push current class to back stack (for navigation)
+    const currentId = get().selectedClass?.id
+    if (currentId && currentId !== classId) {
+      set(s => ({
+        navBackStack: [...s.navBackStack, currentId],
+        navForwardStack: [],   // clear forward on new navigation
+      }))
+    }
+
     set({ isLoadingDetail: true, isLoadingGraph: true, selectedMember: null, selectedMembers: new Set() })
     try {
       const [detail, graph] = await Promise.all([
@@ -179,6 +197,64 @@ export const useAppStore = create<AppState>((set, get) => ({
   setClassFilter: (filter: string) => {
     set({ classFilter: filter })
     get().loadClasses(filter || undefined)
+  },
+
+  goBack: async () => {
+    const { navBackStack, selectedClass } = get()
+    if (navBackStack.length === 0) return
+    const prevId = navBackStack[navBackStack.length - 1]
+    const currentId = selectedClass?.id
+
+    // Move current to forward stack, pop from back stack
+    set(s => ({
+      navBackStack: s.navBackStack.slice(0, -1),
+      navForwardStack: currentId ? [...s.navForwardStack, currentId] : s.navForwardStack,
+    }))
+
+    // Load the class (without pushing to history again)
+    set({ isLoadingDetail: true, isLoadingGraph: true, selectedMember: null, selectedMembers: new Set() })
+    try {
+      const [detail, graph] = await Promise.all([
+        api.getClassDetail(prevId),
+        api.getClassHierarchy(prevId),
+      ])
+      set({ selectedClass: detail, graph, isLoadingDetail: false, isLoadingGraph: false })
+      if (detail?.location) {
+        await get().loadSource(detail.location.file, detail.location.line)
+      }
+    } catch (err) {
+      console.error('Failed to go back:', err)
+      set({ isLoadingDetail: false, isLoadingGraph: false })
+    }
+  },
+
+  goForward: async () => {
+    const { navForwardStack, selectedClass } = get()
+    if (navForwardStack.length === 0) return
+    const nextId = navForwardStack[navForwardStack.length - 1]
+    const currentId = selectedClass?.id
+
+    // Move current to back stack, pop from forward stack
+    set(s => ({
+      navForwardStack: s.navForwardStack.slice(0, -1),
+      navBackStack: currentId ? [...s.navBackStack, currentId] : s.navBackStack,
+    }))
+
+    // Load the class (without pushing to history again)
+    set({ isLoadingDetail: true, isLoadingGraph: true, selectedMember: null, selectedMembers: new Set() })
+    try {
+      const [detail, graph] = await Promise.all([
+        api.getClassDetail(nextId),
+        api.getClassHierarchy(nextId),
+      ])
+      set({ selectedClass: detail, graph, isLoadingDetail: false, isLoadingGraph: false })
+      if (detail?.location) {
+        await get().loadSource(detail.location.file, detail.location.line)
+      }
+    } catch (err) {
+      console.error('Failed to go forward:', err)
+      set({ isLoadingDetail: false, isLoadingGraph: false })
+    }
   },
 }))
 

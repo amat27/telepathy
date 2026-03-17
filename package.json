@@ -2,7 +2,7 @@
   "name": "telepathy",
   "version": "0.1.0",
   "description": "Code structure visualization tool - like Sourcetrail",
-  "main": "./out/main/index.js",
+  "main": "./out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",

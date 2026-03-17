@@ -9,7 +9,7 @@ import type { CodeSymbol } from '../../types/model'
 import './CodePreview.css'
 
 type SortKey = 'name' | 'kind' | 'line'
-type GroupMode = 'none' | 'kind'
+type GroupMode = 'none' | 'kind' | 'origin'
 
 export function CodePreview() {
   const { selectedClass, selectedMember, selectedMembers, sourceCode, sourceFile, sourceLine, selectMember, toggleMember } = useAppStore()
@@ -61,16 +61,30 @@ export function CodePreview() {
     return list
   }, [selectedClass?.members, memberFilter, sortBy])
 
-  // Group members by kind
+  // Group members by kind or origin
   const groupedMembers = useMemo(() => {
     if (groupBy === 'none') return null
 
     const groups = new Map<string, CodeSymbol[]>()
     for (const m of processedMembers) {
-      const key = kindGroupLabel(m.kind)
+      const key = groupBy === 'origin'
+        ? (m.inheritedFrom ? `Inherited from ${m.inheritedFrom}` : 'Own Members')
+        : kindGroupLabel(m.kind)
       if (!groups.has(key)) groups.set(key, [])
       groups.get(key)!.push(m)
     }
+
+    // For origin mode, put "Own Members" first
+    if (groupBy === 'origin') {
+      const sorted = new Map<string, CodeSymbol[]>()
+      if (groups.has('Own Members')) {
+        sorted.set('Own Members', groups.get('Own Members')!)
+        groups.delete('Own Members')
+      }
+      for (const [k, v] of groups) sorted.set(k, v)
+      return sorted
+    }
+
     return groups
   }, [processedMembers, groupBy])
 
@@ -129,10 +143,10 @@ export function CodePreview() {
               </select>
               <button
                 className={`member-group-btn ${groupBy !== 'none' ? 'active' : ''}`}
-                onClick={() => setGroupBy(g => g === 'none' ? 'kind' : 'none')}
-                title="Group by kind"
+                onClick={() => setGroupBy(g => g === 'none' ? 'kind' : g === 'kind' ? 'origin' : 'none')}
+                title={`Group: ${groupBy === 'none' ? 'off' : groupBy} (click to cycle)`}
               >
-                G
+                {groupBy === 'none' ? 'G' : groupBy === 'kind' ? 'K' : 'B'}
               </button>
             </div>
             <span className="member-stats">
@@ -177,8 +191,13 @@ export function CodePreview() {
       {/* Source code */}
       <div className="source-section">
         <div className="source-header">
-          Source
-          {sourceLine > 0 && <span className="source-line-info">Line {sourceLine}</span>}
+          <span className="source-label">Source</span>
+          {sourceFile && (
+            <span className="source-file-name" title={sourceFile}>
+              {sourceFile.split(/[\\/]/).pop()}
+            </span>
+          )}
+          {sourceLine > 0 && <span className="source-line-info">:{sourceLine}</span>}
         </div>
         <SourceCodeView code={sourceCode} highlightLine={sourceLine} ref={sourceRef} />
       </div>
@@ -271,13 +290,17 @@ function MemberItem({
 }) {
   return (
     <div
-      className={`member-item ${isActive ? 'active' : ''} ${isSelected ? 'pinned' : ''}`}
+      className={`member-item ${isActive ? 'active' : ''} ${isSelected ? 'pinned' : ''} ${member.inheritedFrom ? 'inherited' : ''}`}
       onClick={onClick}
+      title={member.inheritedFrom ? `Inherited from ${member.inheritedFrom}` : undefined}
     >
       <span className={`member-kind kind-${member.kind}`}>
         {kindLabels[member.kind] ?? '?'}
       </span>
-      <span className="member-name">{member.name}</span>
+      <span className="member-name">
+        {member.name}
+        {member.inheritedFrom && <span className="inherited-tag">{member.inheritedFrom}</span>}
+      </span>
       {member.location && (
         <span className="member-line">:{member.location.line}</span>
       )}

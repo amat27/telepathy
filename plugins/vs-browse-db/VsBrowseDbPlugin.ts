@@ -292,10 +292,67 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
     const row = this.stmtGetClassDetail.get(Number(classId)) as CodeItemRow | undefined
     if (!row) return null
 
+    // Direct members
     const memberRows = this.stmtGetMembers.all(row.id) as CodeItemRow[]
     const members = memberRows.map(m => this.rowToSymbol(m))
 
+    // Collect inherited members from base classes (recursive)
+    const inheritedMembers = this.collectInheritedMembers(Number(classId), new Set<number>())
+    members.push(...inheritedMembers)
+
     return this.rowToSymbol(row, members)
+  }
+
+  /**
+   * Walk the base class chain and collect inherited members,
+   * tagging each with inheritedFrom = base class name.
+   * Deduplicates by name+kind to avoid showing overridden methods twice.
+   */
+  private collectInheritedMembers(classId: number, visited: Set<number>): CodeSymbol[] {
+    visited.add(classId)
+    const result: CodeSymbol[] = []
+    const seen = new Set<string>()  // "name|kind" dedup key
+
+    // First gather direct member names of the original class to skip overrides
+    const directRows = this.stmtGetMembers.all(classId) as CodeItemRow[]
+    for (const r of directRows) {
+      seen.add(`${r.name}|${r.kind}`)
+    }
+
+    const baseRows = this.stmtGetBases.all(classId) as any[]
+    for (const base of baseRows) {
+      if (!base.base_class_id) continue
+      const baseClassId = Number(base.base_class_id)
+      if (visited.has(baseClassId)) continue
+
+      // Get the base class name
+      const baseClassRow = this.stmtGetItem.get(baseClassId) as CodeItemRow | undefined
+      const baseName = baseClassRow?.name ?? base.base_name
+
+      // Get direct members of this base
+      const baseMemberRows = this.stmtGetMembers.all(baseClassId) as CodeItemRow[]
+      for (const m of baseMemberRows) {
+        const key = `${m.name}|${m.kind}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          const sym = this.rowToSymbol(m)
+          sym.inheritedFrom = baseName
+          result.push(sym)
+        }
+      }
+
+      // Recurse into grandparent bases
+      const grandparentMembers = this.collectInheritedMembers(baseClassId, visited)
+      for (const gm of grandparentMembers) {
+        const key = `${gm.name}|${gm.kind}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          result.push(gm)  // keep the original inheritedFrom tag
+        }
+      }
+    }
+
+    return result
   }
 
   async getClassHierarchy(classId: string): Promise<CodeGraph> {

@@ -123,13 +123,13 @@ function ExpandedClassNode({ data }: NodeProps<Node<ExpandedNodeData>>) {
           {fields.map(m => (
             <div
               key={m.id}
-              className={`graph-member-row ${data.selectedMemberId === m.id ? 'active' : ''}`}
+              className={`graph-member-row ${data.selectedMemberId === m.id ? 'active' : ''} ${m.inheritedFrom ? 'inherited' : ''}`}
               onClick={(e) => { e.stopPropagation(); handleMemberClick(m) }}
             >
               <span className={`gm-kind kind-${m.kind}`}>
                 {kindLabels[m.kind] ?? '?'}
               </span>
-              <span className="gm-name" title={m.signature ?? m.name}>{m.name}</span>
+              <span className="gm-name" title={m.inheritedFrom ? `${m.name} (from ${m.inheritedFrom})` : m.signature ?? m.name}>{m.name}</span>
               {m.returnType && <span className="gm-type">{m.returnType}</span>}
             </div>
           ))}
@@ -142,11 +142,11 @@ function ExpandedClassNode({ data }: NodeProps<Node<ExpandedNodeData>>) {
           {functions.map(m => (
             <div
               key={m.id}
-              className={`graph-member-row ${data.selectedMemberId === m.id ? 'active' : ''}`}
+              className={`graph-member-row ${data.selectedMemberId === m.id ? 'active' : ''} ${m.inheritedFrom ? 'inherited' : ''}`}
               onClick={(e) => { e.stopPropagation(); handleMemberClick(m) }}
             >
               <span className={`gm-kind kind-${m.kind}`}>fn</span>
-              <span className="gm-name" title={m.signature ?? m.name}>{m.name}</span>
+              <span className="gm-name" title={m.inheritedFrom ? `${m.name} (from ${m.inheritedFrom})` : m.signature ?? m.name}>{m.name}</span>
               {m.returnType && <span className="gm-type">{m.returnType}</span>}
             </div>
           ))}

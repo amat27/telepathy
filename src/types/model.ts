@@ -47,6 +47,7 @@ export interface CodeSymbol {
   returnType?: string          // for functions/methods
   signature?: string           // full type signature
   parentId?: string            // containing symbol id
+  inheritedFrom?: string       // base class name (if inherited member)
 }
 
 export interface SymbolEdge {

@@ -158,6 +158,12 @@
 .graph-member-row.active {
   background: rgba(137, 180, 250, 0.15);
 }
+.graph-member-row.inherited {
+  opacity: 0.6;
+}
+.graph-member-row.inherited:hover {
+  opacity: 1;
+}
 
 .gm-kind {
   font-size: 9px;
