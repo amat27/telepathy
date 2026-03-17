@@ -88,9 +88,11 @@ Key implementation details:
 | Problem | Solution |
 |---------|----------|
 | Duplicate classes across translation units | `GROUP BY ci.name, ci.kind` deduplication |
+| Forward declarations vs. real definitions | Subqueries `ORDER BY member_count DESC` to prefer the definition with the most members |
 | 0-member forward declarations / template instantiations | `WHERE EXISTS (subquery for members)` filter |
 | Control characters in `type` column (`\u0001\u0002`) | `.replace(/[\x00-\x1f]/g, '').trim()` |
 | Duplicate base class matches from multi-TU joins | Subquery with `LIMIT 1` per base class name |
+| C++ type strings → class IDs | `resolveTypeToClassId()` strips `const`/`*`/`&`/templates, skips primitives + STL types, looks up in DB |
 | `better-sqlite3` doesn't support URI mode | Fallback to plain `readonly: true` open |
 
 ### Browse.VC.db Schema (v18)
@@ -128,15 +130,33 @@ User action
 ### Selecting a Class
 
 ```
-Click tree item
+Click tree item (or graph node, or search result)
   → store.selectClass(id)
+    → pushes current class to navBackStack, clears navForwardStack
     → parallel:
       │ IPC: getClassDetail(id) → SQL join code_items + members
+      │   + collectInheritedMembers() → recursive base walk, tags inheritedFrom
+      │   + resolveTypesOnMembers()   → resolves field types to class IDs
       │ IPC: getClassHierarchy(id) → SQL base_class_parents traversal
+      │   + adds UsesType edges for resolved member types
     → store.selectedClass = detail
     → store.graph = hierarchy
     → auto: loadSource(file, line)
       → IPC: getSourceSnippet() → fs.readFileSync + line windowing
+```
+
+### Back/Forward Navigation
+
+```
+← button (or Alt+Left)
+  → store.goBack()
+    → pops from navBackStack, pushes current to navForwardStack
+    → loads the class without pushing to history
+
+→ button (or Alt+Right)
+  → store.goForward()
+    → pops from navForwardStack, pushes current to navBackStack
+    → loads the class without pushing to history
 ```
 
 ### Member Selection & Pin
@@ -179,17 +199,21 @@ Left panel. Text filter input + scrollable list of `SymbolSummary` items. Shows 
 
 Center panel. Uses `@xyflow/react` with two custom node types:
 
-- **ExpandedClassNode** — the selected class, shows pinned/active members split by fields/methods
-- **ClassNode** — compact node for base/derived classes in the hierarchy
+- **ExpandedClassNode** — the selected class, shows pinned/active members split by fields/methods (inherited members shown with reduced opacity)
+- **ClassNode** — compact node for base/derived classes and type-reference classes
 
-Edges represent inheritance (base → derived). Layout is computed with a simple center-out algorithm (root at center, bases above, derived below).
+Three kinds of edges:
+- **Inheritance** (solid yellow) — base → derived
+- **UsesType** (dashed animated purple) — root → type class, shown only when a member referencing that type is selected/pinned
+
+Layout: root at center, bases above, derived below, type nodes to the right. Type nodes appear/disappear dynamically based on visible members.
 
 ### CodePreview (`src/components/CodePreview/`)
 
 Right panel, split into two sections:
 
-1. **Members toolbar + list** — filter input, sort dropdown, group toggle (G button), member items with Ctrl+Click pin
-2. **Source viewer** — line-numbered code with highlighted active line, auto-scrolls to selection
+1. **Members toolbar + list** — filter input, sort dropdown, group toggle cycling through none (G) / kind (K) / base-origin (B), member items with Ctrl+Click pin. Inherited members are shown with a muted tag indicating the base class.
+2. **Source viewer** — filename + line number in header, line-numbered code with highlighted active line, auto-scrolls to selection
 
 ### SearchBar (`src/components/SearchBar/`)
 
@@ -212,8 +236,12 @@ interface AppState {
   selectedMember: CodeSymbol | null      // active (clicked) member
   selectedMembers: Set<string>           // pinned member IDs (Ctrl+Click)
 
+  // Navigation history
+  navBackStack: string[]                 // class IDs for back navigation
+  navForwardStack: string[]              // class IDs for forward navigation
+
   // Center panel
-  graph: CodeGraph | null
+  graph: CodeGraph | null                // nodes + edges (Inherits + UsesType)
 
   // Right panel
   sourceCode: string; sourceFile: string | null; sourceLine: number
@@ -240,6 +268,7 @@ This approach bypasses the need for a test harness inside the Electron app — t
 ## Known Limitations
 
 - **No call graph data** — `Browse.VC.db` `symbol_refs`/`symbol_relations` tables are empty. Would need a VSIX extension or clangd for call chain data.
+- **Type resolution is name-based** — `resolveTypeToClassId` strips qualifiers and looks up by name. This can misresolve when multiple unrelated classes share a name.
 - **Single plugin** — only `vs-browse-db` is implemented. Future plugins could read `compile_commands.json`, clangd index, or other IDEs' databases.
 - **No incremental updates** — the DB is read once on open. If VS rebuilds the DB, you must reopen.
 - **Windows-only testing** — paths and Electron binary assume Windows. The architecture is cross-platform but hasn't been tested elsewhere.

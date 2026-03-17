@@ -8,10 +8,12 @@ A desktop code structure visualization tool inspired by [Sourcetrail](https://gi
 
 ## Features
 
-- **Class browser** — filterable list of classes/structs from the VS IntelliSense DB, with 0-member forward declarations filtered out
-- **Inheritance graph** — interactive node graph showing base and derived classes using React Flow
-- **Member inspector** — right panel with search/filter, sort (line/name/kind), group-by-kind toggle, and Ctrl+Click pin-to-graph
-- **Source preview** — reads source files directly from disk, highlights the selected member's line
+- **Class browser** — filterable list of classes/structs from the VS IntelliSense DB, with forward declarations resolved to the real definition (most members wins)
+- **Inheritance graph** — interactive node graph showing base and derived classes using React Flow; selecting/pinning a member whose type is a known class adds that type as a node with a dashed purple edge
+- **Member inspector** — right panel with search/filter, sort (line/name/kind), group toggle cycling through none/kind/base-origin, and Ctrl+Click pin-to-graph
+- **Inherited members** — base class members are collected recursively and shown alongside own members, tagged with the originating base class name
+- **Source preview** — reads source files directly from disk, shows filename + line number in header, highlights the selected member's line
+- **Back/forward navigation** — ← / → buttons (+ Alt+Left / Alt+Right shortcuts) maintain a class visit history stack
 - **Ctrl+K search** — global fuzzy search across all symbols
 - **Plugin architecture** — data source abstraction; first plugin reads `Browse.VC.db` via SQLite
 
@@ -77,7 +79,9 @@ The first (and currently only) plugin reads **Visual Studio's `Browse.VC.db`** �
 
 ### What works
 - Class/struct listing with deduplication (`GROUP BY name, kind`)
-- Member queries (functions, fields, enums, typedefs)
+- Forward declaration disambiguation (prefers definition with the most members)
+- Member queries (functions, fields, enums, typedefs) including inherited members from base classes
+- Type resolution — member return/field types are resolved to class IDs when possible
 - Inheritance relationships via `base_class_parents` table
 - Source code reading from disk
 
