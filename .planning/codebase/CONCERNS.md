@@ -1,6 +1,6 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-03-17
+**Analysis Date:** 2026-03-18 (updated from 2026-03-17)
 
 ## Tech Debt
 
@@ -42,11 +42,10 @@
 
 ## Known Bugs
 
-**Class Filter Has No Debounce:**
-- Symptoms: Every keystroke in the class filter input triggers `setClassFilter` → `loadClasses(filter)` which issues a synchronous SQLite query via IPC round-trip. With fast typing, many redundant IPC calls fire.
-- Files: `src/stores/appStore.ts` (lines 197–199), `src/components/SymbolTree/SymbolTree.tsx` (line 51)
-- Trigger: Type quickly into the "Filter classes..." input.
-- Workaround: SQLite queries are fast (~ms), so impact is tolerable for now. The search bar (`SearchBar.tsx`) correctly debounces with 200ms timeout — the class filter should match.
+**~~Class Filter Has No Debounce~~ (FIXED in Phase 1):**
+- Resolution: Added 200ms debounce timer in `setClassFilter` and request-ID guard in `loadClasses` to discard stale IPC responses. CSS spinner shows during loading.
+- Files changed: `src/stores/appStore.ts` (debounce + request-ID), `src/components/SymbolTree/SymbolTree.tsx` (loading spinner), `src/components/SymbolTree/SymbolTree.css` (spinner styles)
+- Covered by: 5 unit tests in `src/stores/__tests__/appStore.test.ts`
 
 **Search Results Only Navigate to Classes/Structs:**
 - Symptoms: Clicking a search result for a function, member, enum, or namespace does nothing — `handleSelect` only calls `selectClass` for Class/Struct kinds.
@@ -68,11 +67,11 @@
 - Current mitigation: `contextIsolation: true` and `nodeIntegration: false` prevent direct Node.js access from the renderer. The attack surface requires compromising the preload bridge.
 - Recommendations: Add path validation — restrict reads to paths that exist in the database's `files` table or within the database's parent directory tree.
 
-**Hardcoded Test Database Path:**
+**Hardcoded Test Database Path (partially mitigated):**
 - Risk: The E2E test file contains a hardcoded absolute path to a developer's local database. Not a security vulnerability per se, but exposes internal filesystem structure.
 - Files: `test-electron.mjs` (line 5: `D:/src/engine2/Sql/Picasso/Engine/src/.vs/server/v18/Browse.VC.db`)
-- Current mitigation: Test file is committed to the repo but only runs manually.
-- Recommendations: Accept the database path as an environment variable or CLI argument. Default to a test fixture if available.
+- Current mitigation: Test file is committed to the repo but only runs manually. A fixture database now exists at `test/fixtures/sample.db` with 8 fictional classes.
+- Recommendations: Update `test-electron.mjs` to default to the fixture DB. Accept overrides via environment variable for testing against real databases.
 
 **Exposed Store on `window` Object:**
 - Risk: `window.__telepathyStore` exposes the full Zustand store (including `openDatabase`) to any code running in the renderer, including potential XSS payloads.
@@ -173,11 +172,12 @@
 
 ## Test Coverage Gaps
 
-**Zero Unit Tests:**
-- What's not tested: There are no `*.test.*` or `*.spec.*` files anywhere in the codebase. Zero unit test coverage.
-- Files: Entire codebase — `src/`, `electron/`, `plugins/`
-- Risk: Any refactoring (especially to SQL queries, type resolution, or store logic) could break functionality with no automated detection.
-- Priority: **High** — the type resolution logic (`resolveTypeToClassId`), SQL query results mapping, and store actions are the highest-value targets for unit tests.
+**Unit Tests — Minimal Coverage (5 tests):**
+- What's tested: Debounce timer behavior and request-ID guard in `appStore.ts` (5 tests in `src/stores/__tests__/appStore.test.ts`)
+- What's not tested: SQL queries, type resolution (`resolveTypeToClassId`), plugin logic, React components, IPC handlers, graph layout calculation
+- Files: `src/stores/__tests__/appStore.test.ts` (only test file)
+- Risk: Core plugin logic and UI components have zero automated test coverage. Refactoring SQL queries or type resolution could break functionality with no detection.
+- Priority: **High** — type resolution logic, SQL query results mapping, and component rendering are the highest-value targets for additional tests.
 
 **E2E Test is Manual and Environment-Specific:**
 - What's not tested: The single E2E test (`test-electron.mjs`) requires a running Electron instance with CDP on port 9222, and a specific local database file. It cannot run in CI.
@@ -185,12 +185,10 @@
 - Risk: Regression detection depends entirely on manual testing.
 - Priority: **Medium** — parameterize the DB path, add a small test fixture database, and integrate into a CI workflow.
 
-**No Test Configuration:**
-- What's not tested: No test runner is configured. No `jest.config.*`, `vitest.config.*`, or test scripts in `package.json`.
-- Files: `package.json` (lines 6–11 — no test script)
-- Risk: Contributors have no guidance on how to write or run tests.
-- Priority: **High** — set up vitest (already using Vite) with a basic config and at least one example test.
+**~~No Test Configuration~~ (FIXED in Phase 1):**
+- Resolution: Vitest 4.1.0 configured in `vitest.config.ts`. Test script added to `package.json` (`npm test` runs `vitest run`). 5 unit tests passing.
+- Files: `vitest.config.ts`, `package.json`, `src/stores/__tests__/appStore.test.ts`
 
 ---
 
-*Concerns audit: 2026-03-17*
+*Concerns audit: 2026-03-18 (updated — Phase 1 fixes applied)*

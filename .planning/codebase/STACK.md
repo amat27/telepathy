@@ -1,6 +1,6 @@
 # Technology Stack
 
-**Analysis Date:** 2026-03-17
+**Analysis Date:** 2026-03-18 (updated from 2026-03-17)
 
 ## Languages
 
@@ -31,6 +31,7 @@
 - Allotment 1.20.5 - Resizable split pane layout
 
 **Testing:**
+- Vitest 4.1.0 - Unit test runner (configured in `vitest.config.ts`, runs via `npm test`)
 - Playwright 1.58.2 - E2E testing via Chrome DevTools Protocol (CDP) connection to Electron
 
 **Build/Dev:**
@@ -82,6 +83,7 @@ npm run dev              # electron-vite dev (hot reload)
 npm run build            # electron-vite build (production)
 npm run preview          # electron-vite preview
 npm run rebuild-native   # electron-rebuild -f -w better-sqlite3
+npm test                 # vitest run (unit tests)
 ```
 
 ## Content Security Policy
@@ -121,6 +123,7 @@ Configured in `electron/main.ts`:
 | `tsconfig.json` | Base TypeScript config |
 | `tsconfig.node.json` | Main process TypeScript config |
 | `tsconfig.web.json` | Renderer TypeScript config |
+| `vitest.config.ts` | Unit test runner config |
 | `package.json` | Dependencies and scripts |
 | `.gitignore` | Excludes node_modules, out, dist, screenshots |
 | `openspec/config.yaml` | OpenSpec workflow config (unused) |
@@ -128,4 +131,4 @@ Configured in `electron/main.ts`:
 
 ---
 
-*Stack analysis: 2026-03-17*
+*Stack analysis: 2026-03-18 (updated — Vitest added)*
