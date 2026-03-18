@@ -50,6 +50,9 @@ export function SymbolTree() {
           value={classFilter}
           onChange={e => setClassFilter(e.target.value)}
         />
+        {isLoadingClasses && classFilter && (
+          <span className="filter-loading" />
+        )}
         <span className="tree-count">{classes.length}</span>
       </div>
 
