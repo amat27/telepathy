@@ -75,6 +75,11 @@ Plans:
 **Risks:**
 - Shiki ESM-only package + electron-vite may need Vite config tweak (low risk)
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — Shiki highlighter singleton + SourceCodeView token rendering + CSS
+
 ---
 
 ## Phase 3: Class Pinning + Multi-Class Graph
