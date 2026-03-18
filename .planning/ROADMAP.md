@@ -42,7 +42,7 @@ Phase 2: Syntax Highlighting ─┼──► Phase 3: Class Pinning + Graph ─�
 **Plans:** 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md — Debounce filter input + request-ID guard + loading indicator
+- [x] 01-01-PLAN.md — Debounce filter input + request-ID guard + loading indicator
 
 ---
 

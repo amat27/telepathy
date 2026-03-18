@@ -9,9 +9,9 @@ Requirements for this round of work. Each maps to roadmap phases.
 
 ### Search Performance
 
-- [ ] **SRCH-01**: Typing in the SymbolTree filter does not freeze or lag the UI
-- [ ] **SRCH-02**: Filter input is debounced (200-300ms) before triggering IPC/SQL queries
-- [ ] **SRCH-03**: Rapid typing cancels stale in-flight queries (no race conditions)
+- [x] **SRCH-01**: Typing in the SymbolTree filter does not freeze or lag the UI
+- [x] **SRCH-02**: Filter input is debounced (200-300ms) before triggering IPC/SQL queries
+- [x] **SRCH-03**: Rapid typing cancels stale in-flight queries (no race conditions)
 
 ### Class Pinning
 
@@ -90,9 +90,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SRCH-01 | Phase 1 | Pending |
-| SRCH-02 | Phase 1 | Pending |
-| SRCH-03 | Phase 1 | Pending |
+| SRCH-01 | Phase 1 | Complete |
+| SRCH-02 | Phase 1 | Complete |
+| SRCH-03 | Phase 1 | Complete |
 | SYNT-01 | Phase 2 | Pending |
 | SYNT-02 | Phase 2 | Pending |
 | SYNT-03 | Phase 2 | Pending |
