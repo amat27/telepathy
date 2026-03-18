@@ -20,7 +20,7 @@ const kindIcon: Record<string, string> = {
 }
 
 export function SearchBar() {
-  const { search, searchResults, isSearching, selectClass, isConnected } = useAppStore()
+  const { search, searchResults, isSearching, selectClass, createTab, isConnected } = useAppStore()
   const [query, setQuery] = useState('')
   const [showResults, setShowResults] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -37,12 +37,16 @@ export function SearchBar() {
     }, 200)
   }, [search])
 
-  const handleSelect = useCallback((symbol: SymbolSummary) => {
+  const handleSelect = useCallback((symbol: SymbolSummary, e: React.MouseEvent) => {
     if (symbol.kind === SymbolKind.Class || symbol.kind === SymbolKind.Struct) {
-      selectClass(symbol.id)
+      if (e.ctrlKey || e.metaKey) {
+        createTab(symbol.id)
+      } else {
+        selectClass(symbol.id)
+      }
     }
     setShowResults(false)
-  }, [selectClass])
+  }, [selectClass, createTab])
 
   // Ctrl+K to focus search
   useEffect(() => {
@@ -84,7 +88,7 @@ export function SearchBar() {
             <div
               key={sym.id}
               className="search-result-item"
-              onClick={() => handleSelect(sym)}
+              onClick={(e) => handleSelect(sym, e)}
             >
               <span className={`kind-badge kind-${sym.kind}`}>
                 {kindIcon[sym.kind] ?? '?'}

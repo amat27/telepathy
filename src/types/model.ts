@@ -65,6 +65,32 @@ export interface CodeGraph {
   edges: SymbolEdge[]
 }
 
+// ============================================================
+// Tab Management
+// ============================================================
+
+/** Per-tab state snapshot (everything that varies between tabs) */
+export interface TabState {
+  selectedClass: CodeSymbol | null
+  isLoadingDetail: boolean
+  selectedMember: CodeSymbol | null
+  selectedMembers: Set<string>
+  graph: CodeGraph | null
+  isLoadingGraph: boolean
+  sourceCode: string
+  sourceFile: string | null
+  sourceLine: number
+  navBackStack: string[]
+  navForwardStack: string[]
+}
+
+/** Tab metadata + stored state for background tabs */
+export interface TabInfo {
+  id: string
+  label: string              // class name or "New Tab"
+  state: TabState            // snapshot (only meaningful for background tabs)
+}
+
 /** Flattened summary for tree views and search results */
 export interface SymbolSummary {
   id: string

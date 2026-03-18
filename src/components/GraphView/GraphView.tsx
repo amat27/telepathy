@@ -329,7 +329,7 @@ function buildFlowElements(
 // ---- Main Component ----
 
 export function GraphView() {
-  const { graph, selectedClass, selectedMember, selectedMembers, isLoadingGraph, selectClass } = useAppStore()
+  const { graph, selectedClass, selectedMember, selectedMembers, isLoadingGraph, selectClass, createTab } = useAppStore()
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
     () => buildFlowElements(graph, selectedClass?.id ?? null, selectedMember?.id ?? null, selectedMembers),
@@ -346,12 +346,16 @@ export function GraphView() {
   }, [initialNodes, initialEdges, setNodes, setEdges])
 
   const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
+    (event: React.MouseEvent, node: Node) => {
       if (node.id !== selectedClass?.id) {
-        selectClass(node.id)
+        if (event.ctrlKey || event.metaKey) {
+          createTab(node.id)
+        } else {
+          selectClass(node.id)
+        }
       }
     },
-    [selectedClass, selectClass]
+    [selectedClass, selectClass, createTab]
   )
 
   if (isLoadingGraph) {

@@ -18,6 +18,7 @@ export function SymbolTree() {
     isConnected,
     setClassFilter,
     selectClass,
+    createTab,
     openDatabase,
   } = useAppStore()
 
@@ -64,7 +65,13 @@ export function SymbolTree() {
               key={cls.id}
               symbol={cls}
               isSelected={selectedClass?.id === cls.id}
-              onClick={() => selectClass(cls.id)}
+              onClick={(e) => {
+                if (e.ctrlKey || e.metaKey) {
+                  createTab(cls.id)
+                } else {
+                  selectClass(cls.id)
+                }
+              }}
             />
           ))
         )}
@@ -80,7 +87,7 @@ function SymbolTreeItem({
 }: {
   symbol: SymbolSummary
   isSelected: boolean
-  onClick: () => void
+  onClick: (e: React.MouseEvent) => void
 }) {
   const kindChar = symbol.kind === SymbolKind.Class ? 'C' : 'S'
   const kindClass = symbol.kind === SymbolKind.Class ? 'kind-class' : 'kind-struct'
