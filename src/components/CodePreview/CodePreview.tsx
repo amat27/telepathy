@@ -6,6 +6,8 @@ import { useRef, useEffect, useCallback, useState, useMemo, forwardRef } from 'r
 import { useAppStore } from '../../stores/appStore'
 import { SymbolKind } from '../../types/model'
 import type { CodeSymbol } from '../../types/model'
+import { highlightCode } from '../../lib/highlighter'
+import type { HighlightToken } from '../../lib/highlighter'
 import './CodePreview.css'
 
 type SortKey = 'name' | 'kind' | 'line'
@@ -245,6 +247,11 @@ const SourceCodeView = forwardRef<HTMLPreElement, { code: string; highlightLine:
       return { num: 0, text: raw }
     })
 
+    const highlighted = useMemo(() => {
+      const rawText = lines.map(l => l.text).join('\n')
+      return highlightCode(rawText)
+    }, [code])
+
     return (
       <pre className="source-code" ref={ref}>
         <code>
@@ -255,7 +262,15 @@ const SourceCodeView = forwardRef<HTMLPreElement, { code: string; highlightLine:
               data-line={line.num}
             >
               <span className="line-number">{line.num || ''}</span>
-              <span className="line-content">{line.text}</span>
+              <span className="line-content">
+                {highlighted[i] ? (
+                  highlighted[i].map((token, j) => (
+                    <span key={j} style={{ color: token.color }}>{token.content}</span>
+                  ))
+                ) : (
+                  line.text
+                )}
+              </span>
             </div>
           ))}
         </code>
