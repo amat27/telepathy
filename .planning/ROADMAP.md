@@ -39,6 +39,11 @@ Phase 2: Syntax Highlighting ─┼──► Phase 3: Class Pinning + Graph ─�
 
 **Risks:** None significant. Well-understood patterns.
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Debounce filter input + request-ID guard + loading indicator
+
 ---
 
 ## Phase 2: Syntax Highlighting
