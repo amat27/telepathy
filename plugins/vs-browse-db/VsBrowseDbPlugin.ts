@@ -577,7 +577,7 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
       }
 
       const content = fs.readFileSync(normalizedPath, 'utf-8')
-      const lines = content.split('\n')
+      const lines = content.split(/\r?\n/)
 
       const startLine = Math.max(0, line - contextLines - 1)
       const endLine = Math.min(lines.length, line + contextLines)

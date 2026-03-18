@@ -237,7 +237,7 @@ const SourceCodeView = forwardRef<HTMLPreElement, { code: string; highlightLine:
       )
     }
 
-    const lines = code.split('\n').map(raw => {
+    const lines = code.split(/\r?\n/).map(raw => {
       const match = raw.match(/^(\d+): (.*)$/)
       if (match) {
         return { num: parseInt(match[1], 10), text: match[2] }
