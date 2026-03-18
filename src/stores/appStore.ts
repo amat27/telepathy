@@ -6,6 +6,9 @@ import { create } from 'zustand'
 import type { CodeSymbol, CodeGraph, SymbolSummary } from '../types/model'
 import * as api from '../api'
 
+let _classFilterRequestId = 0
+let _classFilterDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
 interface AppState {
   // Connection state
   isConnected: boolean
@@ -98,13 +101,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   loadClasses: async (filter?: string) => {
+    const requestId = ++_classFilterRequestId
     set({ isLoadingClasses: true })
     try {
       const classes = await api.getClasses(filter)
-      set({ classes, isLoadingClasses: false })
+      // Only update if this is still the latest request (discard stale responses)
+      if (requestId === _classFilterRequestId) {
+        set({ classes, isLoadingClasses: false })
+      }
     } catch (err) {
       console.error('Failed to load classes:', err)
-      set({ isLoadingClasses: false })
+      if (requestId === _classFilterRequestId) {
+        set({ isLoadingClasses: false })
+      }
     }
   },
 
@@ -196,7 +205,15 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setClassFilter: (filter: string) => {
     set({ classFilter: filter })
-    get().loadClasses(filter || undefined)
+
+    // Clear any pending debounce timer
+    if (_classFilterDebounceTimer) clearTimeout(_classFilterDebounceTimer)
+
+    // Debounce: wait 200ms after last keystroke before firing IPC
+    _classFilterDebounceTimer = setTimeout(() => {
+      _classFilterDebounceTimer = null
+      get().loadClasses(filter || undefined)
+    }, 200)
   },
 
   goBack: async () => {
