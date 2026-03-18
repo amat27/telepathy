@@ -122,6 +122,13 @@ Plans:
 - Store refactor touches many components — needs careful incremental approach
 - Graph rebuild performance with 10 expanded nodes — likely fine but needs testing
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Foundation: dagre install + graph layout engine + store refactor for multi-class pinning
+- [ ] 03-02-PLAN.md — GraphView rewrite: multi-class dagre layout with island detection + focused class styles
+- [ ] 03-03-PLAN.md — SymbolTree pin UI: pin toggle per class + Ctrl+click + clear-all button + e2e verification
+
 ---
 
 ## Phase 4: State Persistence (Save/Load Pins)
