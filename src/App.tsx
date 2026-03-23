@@ -5,8 +5,10 @@
 import { SearchBar } from './components/SearchBar/SearchBar'
 import { TabBar } from './components/TabBar/TabBar'
 import { CallstackDialog } from './components/CallstackDialog/CallstackDialog'
+import { ThemeMenu } from './components/ThemeMenu/ThemeMenu'
 import { MainLayout } from './components/Layout/Layout'
 import { useAppStore } from './stores/appStore'
+import { useTheme } from './hooks/useTheme'
 import { useEffect, useState } from 'react'
 import './styles/global.css'
 import './App.css'
@@ -14,6 +16,7 @@ import './App.css'
 export function App() {
   const { navBackStack, navForwardStack, goBack, goForward, createTab, closeTab, activeTabId } = useAppStore()
   const [showCallstack, setShowCallstack] = useState(false)
+  const { themeId, setThemeId } = useTheme()
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -95,6 +98,7 @@ export function App() {
         >
           &#x2630;
         </button>
+        <ThemeMenu currentThemeId={themeId} onSelect={setThemeId} />
       </header>
       <TabBar />
       <MainLayout />

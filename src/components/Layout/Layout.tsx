@@ -3,16 +3,17 @@
 // Left: Symbol Tree | Center: Graph View | Right: Code Preview
 // ============================================================
 
-import { useState } from 'react'
 import { Allotment } from 'allotment'
 import 'allotment/dist/style.css'
 import { SymbolTree } from '../SymbolTree/SymbolTree'
 import { GraphView } from '../GraphView/GraphView'
 import { CodePreview } from '../CodePreview/CodePreview'
+import { useAppStore } from '../../stores/appStore'
 import './Layout.css'
 
 export function MainLayout() {
-  const [leftPanelOpen, setLeftPanelOpen] = useState(true)
+  const leftPanelOpen = useAppStore(s => s.leftPanelOpen)
+  const setLeftPanelOpen = useAppStore(s => s.setLeftPanelOpen)
 
   return (
     <div className="main-layout">

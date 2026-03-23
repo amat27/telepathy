@@ -84,6 +84,7 @@ export interface TabState {
   sourceLine: number
   navBackStack: string[]
   navForwardStack: string[]
+  leftPanelOpen: boolean              // per-tab left panel visibility
 }
 
 /** Tab metadata + stored state for background tabs */

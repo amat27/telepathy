@@ -1,0 +1,80 @@
+/* ============================================================
+   ThemeMenu - Dropdown theme picker styles
+   ============================================================ */
+
+.theme-menu {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.theme-toggle-btn {
+  font-size: 15px !important;
+}
+
+.theme-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 200px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+}
+
+.theme-group-label {
+  padding: 6px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+.theme-option:hover {
+  background: var(--bg-hover);
+}
+.theme-option.active {
+  background: var(--bg-active);
+}
+
+.theme-swatch {
+  display: flex;
+  width: 20px;
+  height: 14px;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+.swatch-bg {
+  flex: 1;
+}
+.swatch-accent {
+  flex: 1;
+}
+
+.theme-name {
+  flex: 1;
+}
+
+.theme-check {
+  color: var(--text-accent);
+  font-size: 12px;
+}

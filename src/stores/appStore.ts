@@ -31,6 +31,7 @@ export function defaultTabState(): TabState {
     sourceLine: 0,
     navBackStack: [],
     navForwardStack: [],
+    leftPanelOpen: true,
   }
 }
 
@@ -49,6 +50,7 @@ export function captureTabState(state: AppState): TabState {
     sourceLine: state.sourceLine,
     navBackStack: state.navBackStack,
     navForwardStack: state.navForwardStack,
+    leftPanelOpen: state.leftPanelOpen,
   }
 }
 
@@ -77,6 +79,7 @@ interface AppState {
   sourceLine: number
   navBackStack: string[]
   navForwardStack: string[]
+  leftPanelOpen: boolean
 
   // --- Tab management ---
   tabs: TabInfo[]
@@ -108,6 +111,7 @@ interface AppState {
   loadCallstack: (text: string) => void
   goBack: () => Promise<void>
   goForward: () => Promise<void>
+  setLeftPanelOpen: (open: boolean) => void
 }
 
 // ---- Initial tab ----
@@ -142,6 +146,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   sourceLine: 0,
   navBackStack: [],
   navForwardStack: [],
+  leftPanelOpen: true,
 
   // Tabs
   tabs: [initialTab],
@@ -608,6 +613,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (get().activeTabId !== myTabId) return
       set({ isLoadingDetail: false, isLoadingGraph: false })
     }
+  },
+
+  setLeftPanelOpen: (open: boolean) => {
+    set({ leftPanelOpen: open })
   },
 }))
 
