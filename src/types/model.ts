@@ -57,6 +57,7 @@ export interface SymbolEdge {
   source: string               // source symbol id
   target: string               // target symbol id
   kind: EdgeKind
+  label?: string               // optional display label (e.g. method names on call edges)
   location?: SourceLocation    // where the reference occurs
 }
 
@@ -72,6 +73,7 @@ export interface CodeGraph {
 /** Per-tab state snapshot (everything that varies between tabs) */
 export interface TabState {
   selectedClass: CodeSymbol | null
+  previewedClass: CodeSymbol | null   // transient preview (single-click), does not replace graph
   isLoadingDetail: boolean
   selectedMember: CodeSymbol | null
   selectedMembers: Set<string>

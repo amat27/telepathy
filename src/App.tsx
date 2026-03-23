@@ -4,14 +4,16 @@
 
 import { SearchBar } from './components/SearchBar/SearchBar'
 import { TabBar } from './components/TabBar/TabBar'
+import { CallstackDialog } from './components/CallstackDialog/CallstackDialog'
 import { MainLayout } from './components/Layout/Layout'
 import { useAppStore } from './stores/appStore'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import './styles/global.css'
 import './App.css'
 
 export function App() {
   const { navBackStack, navForwardStack, goBack, goForward, createTab, closeTab, activeTabId } = useAppStore()
+  const [showCallstack, setShowCallstack] = useState(false)
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -33,6 +35,26 @@ export function App() {
       else if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
         e.preventDefault()
         if (activeTabId) closeTab(activeTabId)
+      }
+      // Ctrl+Shift+V for callstack dialog
+      else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'V') {
+        e.preventDefault()
+        setShowCallstack(prev => !prev)
+      }
+      // Ctrl+Plus / Ctrl+= for zoom in
+      else if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        window.telepathy?.zoomIn()
+      }
+      // Ctrl+Minus for zoom out
+      else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault()
+        window.telepathy?.zoomOut()
+      }
+      // Ctrl+0 for zoom reset
+      else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault()
+        window.telepathy?.zoomReset()
       }
     }
     window.addEventListener('keydown', handler)
@@ -66,9 +88,17 @@ export function App() {
         </div>
         <SearchBar />
         <div className="header-spacer" />
+        <button
+          className="nav-btn"
+          onClick={() => setShowCallstack(true)}
+          title="Load callstack (Ctrl+Shift+V)"
+        >
+          &#x2630;
+        </button>
       </header>
       <TabBar />
       <MainLayout />
+      <CallstackDialog open={showCallstack} onClose={() => setShowCallstack(false)} />
     </div>
   )
 }

@@ -3,7 +3,7 @@
 // Exposes a safe API to the renderer process
 // ============================================================
 
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webFrame } from 'electron'
 import { IPC_CHANNELS } from '../src/types/model'
 import type { SymbolKind } from '../src/types/model'
 
@@ -27,6 +27,12 @@ const api = {
 
   // Dialogs
   openDbDialog: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_DB_DIALOG),
+
+  // Zoom
+  zoomIn: () => webFrame.setZoomLevel(webFrame.getZoomLevel() + 0.5),
+  zoomOut: () => webFrame.setZoomLevel(webFrame.getZoomLevel() - 0.5),
+  zoomReset: () => webFrame.setZoomLevel(0),
+  getZoomLevel: () => webFrame.getZoomLevel(),
 }
 
 contextBridge.exposeInMainWorld('telepathy', api)

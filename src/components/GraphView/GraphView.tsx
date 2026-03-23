@@ -2,7 +2,7 @@
 // Graph View - Sourcetrail-style class hierarchy + member list
 // ============================================================
 
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -30,19 +30,22 @@ interface ClassNodeData {
   kind: SymbolKind
   memberCount?: number
   isRoot: boolean
+  classId?: string           // resolved class id for click handling (callstack nodes)
   [key: string]: unknown
 }
 
 function ClassNode({ data }: NodeProps<Node<ClassNodeData>>) {
   const kindClass = data.kind === SymbolKind.Struct ? 'struct' : 'class'
+  const unresolvedClass = data.classId ? '' : 'unresolved'
   return (
-    <div className={`class-node ${kindClass}`}>
+    <div className={`class-node ${kindClass} ${unresolvedClass}`}>
       <Handle type="target" position={Position.Top} />
       <div className="class-node-header">
         <span className={`node-kind-badge ${kindClass}`}>
           {data.kind === SymbolKind.Struct ? 'S' : 'C'}
         </span>
         <span className="node-label">{data.label}</span>
+        {!data.classId && <span className="unresolved-badge" title="Not found in database">?</span>}
       </div>
       {data.memberCount !== undefined && data.memberCount > 0 && (
         <div className="class-node-footer">
@@ -175,6 +178,44 @@ function buildFlowElements(
     return { nodes: [], edges: [] }
   }
 
+  // ---- Callstack mode: graph present but no selected class ----
+  if (!selectedClassId) {
+    const VERTICAL_GAP = 140
+    const flowNodes: Node[] = graph.nodes.map((n, i) => ({
+      id: n.id,
+      type: 'classNode',
+      position: { x: 0, y: i * VERTICAL_GAP },
+      data: {
+        label: n.name,
+        kind: n.kind,
+        memberCount: undefined,
+        isRoot: false,
+        classId: n.typeClassId ?? undefined,    // resolved class id from callstack frame
+      },
+    }))
+    const flowEdges: Edge[] = graph.edges.map(e => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: 'smoothstep',
+      style: {
+        stroke: 'var(--color-call-edge)',
+        strokeWidth: 2,
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: 'var(--color-call-edge)',
+      },
+      label: e.label ?? e.kind,
+      labelStyle: { fill: 'var(--text-muted)', fontSize: 11 },
+      labelBgStyle: { fill: 'var(--bg-surface)', fillOpacity: 0.8 },
+      labelBgPadding: [6, 4] as [number, number],
+    }))
+    return { nodes: flowNodes, edges: flowEdges }
+  }
+
+  // ---- Hierarchy mode (existing) ----
+
   const baseIds = new Set<string>()
   const derivedIds = new Set<string>()
   const typeIds = new Set<string>()
@@ -209,6 +250,7 @@ function buildFlowElements(
         kind: n.kind,
         memberCount: n.members?.length,
         isRoot: false,
+        classId: n.id,
       },
     })
   })
@@ -266,6 +308,7 @@ function buildFlowElements(
           kind: n.kind,
           memberCount: n.members?.length,
           isRoot: false,
+          classId: n.id,
         },
       })
     })
@@ -284,6 +327,7 @@ function buildFlowElements(
           kind: n.kind,
           memberCount: n.members?.length,
           isRoot: false,
+          classId: n.id,
         },
       })
     })
@@ -318,7 +362,7 @@ function buildFlowElements(
               ? 'var(--color-inherit-edge)'
               : 'var(--color-call-edge)',
         },
-        label: isUsesType ? 'type' : e.kind === EdgeKind.Inherits ? 'inherits' : e.kind,
+        label: e.label ?? (isUsesType ? 'type' : e.kind === EdgeKind.Inherits ? 'inherits' : e.kind),
         labelStyle: { fill: 'var(--text-muted)', fontSize: 10 },
       }
     })
@@ -329,7 +373,7 @@ function buildFlowElements(
 // ---- Main Component ----
 
 export function GraphView() {
-  const { graph, selectedClass, selectedMember, selectedMembers, isLoadingGraph, selectClass, createTab } = useAppStore()
+  const { graph, selectedClass, selectedMember, selectedMembers, isLoadingGraph, selectClass, previewClass, createTab } = useAppStore()
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
     () => buildFlowElements(graph, selectedClass?.id ?? null, selectedMember?.id ?? null, selectedMembers),
@@ -345,17 +389,52 @@ export function GraphView() {
     setEdges(initialEdges)
   }, [initialNodes, initialEdges, setNodes, setEdges])
 
+  // Single/double click disambiguation timer
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      if (node.id !== selectedClass?.id) {
-        if (event.ctrlKey || event.metaKey) {
-          createTab(node.id)
-        } else {
-          selectClass(node.id)
+      const data = node.data as ClassNodeData
+      const classId = data.classId
+      if (!classId) return  // unresolved node — no action
+
+      if (event.ctrlKey || event.metaKey) {
+        // Ctrl+Click: open in new tab
+        createTab(classId)
+        return
+      }
+
+      // Start single-click timer (will be cancelled if double-click fires)
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null
+        // Single click: preview only (update right panel, keep graph)
+        if (classId !== selectedClass?.id) {
+          previewClass(classId)
         }
+      }, 250)
+    },
+    [selectedClass, previewClass, createTab]
+  )
+
+  const onNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      const data = node.data as ClassNodeData
+      const classId = data.classId
+      if (!classId) return
+
+      // Cancel pending single-click
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current)
+        clickTimerRef.current = null
+      }
+
+      // Double click: full navigation
+      if (classId !== selectedClass?.id) {
+        selectClass(classId)
       }
     },
-    [selectedClass, selectClass, createTab]
+    [selectedClass, selectClass]
   )
 
   if (isLoadingGraph) {
@@ -378,6 +457,7 @@ export function GraphView() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.3 }}

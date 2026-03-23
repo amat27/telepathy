@@ -4,8 +4,10 @@
 // ============================================================
 
 import { create } from 'zustand'
-import type { CodeSymbol, CodeGraph, SymbolSummary, TabState, TabInfo } from '../types/model'
+import type { CodeSymbol, CodeGraph, SymbolSummary, SymbolEdge, TabState, TabInfo } from '../types/model'
+import { EdgeKind, SymbolKind } from '../types/model'
 import * as api from '../api'
+import { parseCallstack, resolveCallstack } from '../utils/callstackParser'
 
 // ---- Tab helpers ----
 
@@ -18,6 +20,7 @@ function generateTabId(): string {
 export function defaultTabState(): TabState {
   return {
     selectedClass: null,
+    previewedClass: null,
     isLoadingDetail: false,
     selectedMember: null,
     selectedMembers: new Set<string>(),
@@ -35,6 +38,7 @@ export function defaultTabState(): TabState {
 export function captureTabState(state: AppState): TabState {
   return {
     selectedClass: state.selectedClass,
+    previewedClass: state.previewedClass,
     isLoadingDetail: state.isLoadingDetail,
     selectedMember: state.selectedMember,
     selectedMembers: state.selectedMembers,
@@ -62,6 +66,7 @@ interface AppState {
 
   // --- Per-tab state (flat, represents active tab) ---
   selectedClass: CodeSymbol | null
+  previewedClass: CodeSymbol | null
   isLoadingDetail: boolean
   selectedMember: CodeSymbol | null
   selectedMembers: Set<string>
@@ -95,10 +100,12 @@ interface AppState {
 
   // Actions - Per-tab (operate on active tab)
   selectClass: (classId: string) => Promise<void>
+  previewClass: (classId: string) => Promise<void>
   selectMember: (member: CodeSymbol) => Promise<void>
   toggleMember: (member: CodeSymbol) => void
   loadHierarchy: (classId: string) => Promise<void>
   loadSource: (file: string, line: number) => Promise<void>
+  loadCallstack: (text: string) => void
   goBack: () => Promise<void>
   goForward: () => Promise<void>
 }
@@ -124,6 +131,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Per-tab state (flat)
   selectedClass: null,
+  previewedClass: null,
   isLoadingDetail: false,
   selectedMember: null,
   selectedMembers: new Set<string>(),
@@ -318,7 +326,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }))
     }
 
-    set({ isLoadingDetail: true, isLoadingGraph: true, selectedMember: null, selectedMembers: new Set() })
+    set({ isLoadingDetail: true, isLoadingGraph: true, selectedMember: null, selectedMembers: new Set(), previewedClass: null })
 
     // Update tab label optimistically
     set(s => ({
@@ -373,6 +381,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  // Preview a class without navigating (updates right panel only, preserves graph)
+  previewClass: async (classId: string) => {
+    const myTabId = get().activeTabId
+    try {
+      const detail = await api.getClassDetail(classId)
+      if (get().activeTabId !== myTabId) return
+      set({ previewedClass: detail, selectedMember: null })
+
+      // Load source for the previewed class
+      if (detail?.location) {
+        if (get().activeTabId !== myTabId) return
+        await get().loadSource(detail.location.file, detail.location.line)
+      }
+    } catch (err) {
+      console.error('Failed to preview class:', err)
+    }
+  },
+
   toggleMember: (member: CodeSymbol) => {
     const prev = get().selectedMembers
     const next = new Set(prev)
@@ -407,6 +433,99 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (err) {
       console.error('Failed to load source:', err)
     }
+  },
+
+  loadCallstack: async (text: string) => {
+    const myTabId = get().activeTabId
+    const entries = parseCallstack(text)
+    if (entries.length === 0) return
+
+    // Collect all unique potential class name candidates from entry segments.
+    // For segments [s0, s1, ..., sN], try all sub-ranges as possible class names:
+    //   s0, s0::s1, s0::s1::s2, ..., s1, s1::s2, etc.
+    const candidates = new Set<string>()
+    for (const entry of entries) {
+      if (!entry.segments || entry.segments.length < 2) continue
+      for (let split = entry.segments.length - 1; split >= 1; split--) {
+        for (let start = 0; start < split; start++) {
+          candidates.add(entry.segments.slice(start, split).join('::'))
+        }
+      }
+    }
+
+    // Search DB for each candidate in parallel, build name→id map
+    const classNameMap = new Map<string, string>()
+    const searches = [...candidates].map(async (name) => {
+      try {
+        const results = await api.searchSymbols(name, [SymbolKind.Class, SymbolKind.Struct], 5)
+        for (const r of results) {
+          if (r.name === name || r.qualifiedName === name) {
+            classNameMap.set(name, r.id)
+            break // first exact match wins
+          }
+        }
+      } catch { /* ignore search failures */ }
+    })
+    await Promise.all(searches)
+
+    // Tab may have switched during async search
+    if (get().activeTabId !== myTabId) return
+
+    const frames = resolveCallstack(entries, classNameMap)
+    if (frames.length === 0) return
+
+    // Reverse: callstacks list frame 0 (callee) first, we want caller-first order
+    const callerFirst = [...frames].reverse()
+
+    // Build linear chain: one node per frame, no deduplication
+    const nodes: CodeSymbol[] = callerFirst.map((f, i) => ({
+      id: `cs-frame-${i}`,
+      name: f.label,
+      qualifiedName: f.label,
+      kind: SymbolKind.Unknown,
+      location: { file: '', line: 0, column: 0 },
+      typeClassId: f.classId ?? undefined,   // store resolved classId for click handling
+    }))
+
+    // Linear edges: frame[i] → frame[i+1]
+    const edges: SymbolEdge[] = []
+    for (let i = 0; i < nodes.length - 1; i++) {
+      edges.push({
+        id: `cs-edge-${i}`,
+        source: nodes[i].id,
+        target: nodes[i + 1].id,
+        kind: EdgeKind.Calls,
+      })
+    }
+
+    const graph: CodeGraph = { nodes, edges }
+
+    // Save current active tab state
+    const state = get()
+    const currentTabId = state.activeTabId
+    if (currentTabId) {
+      const currentState = captureTabState(state)
+      set({
+        tabs: state.tabs.map(t =>
+          t.id === currentTabId ? { ...t, state: currentState } : t
+        ),
+      })
+    }
+
+    // Create new tab with callstack graph (selectedClass stays null)
+    const newTabId = generateTabId()
+    const newTab: TabInfo = {
+      id: newTabId,
+      label: 'Callstack',
+      state: defaultTabState(),
+    }
+
+    set({
+      ...defaultTabState(),
+      graph,
+      tabs: [...get().tabs, newTab],
+      activeTabId: newTabId,
+    })
   },
 
   goBack: async () => {

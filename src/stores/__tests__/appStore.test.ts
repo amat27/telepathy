@@ -26,7 +26,26 @@ vi.mock('../../api', () => ({
       edges: [],
     })
   ),
-  searchSymbols: vi.fn().mockResolvedValue([]),
+  searchSymbols: vi.fn().mockImplementation((query: string) => {
+    // Return exact matches for known test classes
+    const known: Record<string, { id: string; name: string }> = {
+      ClassA: { id: 'id-A', name: 'ClassA' },
+      ClassB: { id: 'id-B', name: 'ClassB' },
+      PCASTBatch: { id: 'id-P', name: 'PCASTBatch' },
+    }
+    const match = known[query]
+    if (match) {
+      return Promise.resolve([{
+        id: match.id,
+        name: match.name,
+        qualifiedName: match.name,
+        kind: 'class',
+        file: 'test.cpp',
+        line: 1,
+      }])
+    }
+    return Promise.resolve([])
+  }),
   getSourceSnippet: vi.fn().mockResolvedValue('10: void foo() {'),
 }))
 
@@ -34,8 +53,8 @@ function getState() {
   return useAppStore.getState()
 }
 
-function setState(partial: Parameters<typeof useAppStore.setState>[0]) {
-  useAppStore.setState(partial)
+function setState(partial: Partial<ReturnType<typeof useAppStore.getState>>) {
+  useAppStore.setState(partial as any)
 }
 
 describe('Tab Management', () => {
@@ -277,5 +296,110 @@ describe('Tab Management', () => {
     expect(captured.selectedClass!.id).toBe('cls-5')
     expect(captured.sourceCode).toBe('10: void foo() {')
     expect(captured.sourceLine).toBe(10)
+  })
+
+  // ---- previewClass ----
+
+  it('previewClass sets previewedClass without changing graph or selectedClass', async () => {
+    // Select a class first
+    await getState().selectClass('cls-1')
+    const originalGraph = getState().graph
+    const originalSelectedClass = getState().selectedClass
+
+    // Preview a different class
+    await getState().previewClass('cls-2')
+
+    expect(getState().previewedClass).not.toBeNull()
+    expect(getState().previewedClass!.id).toBe('cls-2')
+    // selectedClass and graph should remain unchanged
+    expect(getState().selectedClass).toBe(originalSelectedClass)
+    expect(getState().graph).toBe(originalGraph)
+  })
+
+  it('previewClass loads source for the previewed class', async () => {
+    await getState().previewClass('cls-3')
+
+    expect(getState().previewedClass!.id).toBe('cls-3')
+    // Source should have been loaded (mock returns '10: void foo() {')
+    expect(getState().sourceCode).toBe('10: void foo() {')
+  })
+
+  it('selectClass clears previewedClass', async () => {
+    // Set up a preview
+    await getState().previewClass('cls-2')
+    expect(getState().previewedClass).not.toBeNull()
+
+    // Navigate via selectClass — should clear preview
+    await getState().selectClass('cls-3')
+    expect(getState().previewedClass).toBeNull()
+  })
+
+  it('defaultTabState includes previewedClass as null', () => {
+    const state = defaultTabState()
+    expect(state.previewedClass).toBeNull()
+  })
+
+  it('captureTabState captures previewedClass', async () => {
+    await getState().previewClass('cls-7')
+    const captured = captureTabState(getState())
+    expect(captured.previewedClass).not.toBeNull()
+    expect(captured.previewedClass!.id).toBe('cls-7')
+  })
+
+  // ---- loadCallstack (linear chain) ----
+
+  it('loadCallstack creates linear chain with one node per frame', async () => {
+    const callstack = `\tClassA::Method1\tC++
+\tClassB::Method2\tC++
+\tClassA::Method3\tC++`
+
+    await getState().loadCallstack(callstack)
+
+    const { graph, tabs, activeTabId } = getState()
+    expect(graph).not.toBeNull()
+
+    // Should have 3 nodes (one per frame), NOT deduplicated
+    expect(graph!.nodes).toHaveLength(3)
+    expect(graph!.nodes[0].id).toBe('cs-frame-0')
+    expect(graph!.nodes[1].id).toBe('cs-frame-1')
+    expect(graph!.nodes[2].id).toBe('cs-frame-2')
+
+    // Nodes should use frame labels (full symbol name)
+    expect(graph!.nodes[0].name).toContain('ClassA')
+    expect(graph!.nodes[1].name).toContain('ClassB')
+    expect(graph!.nodes[2].name).toContain('ClassA')
+
+    // Should have 2 edges (linear: 0→1, 1→2)
+    expect(graph!.edges).toHaveLength(2)
+    expect(graph!.edges[0].source).toBe('cs-frame-0')
+    expect(graph!.edges[0].target).toBe('cs-frame-1')
+    expect(graph!.edges[1].source).toBe('cs-frame-1')
+    expect(graph!.edges[1].target).toBe('cs-frame-2')
+
+    // Resolved nodes should have typeClassId set (from searchSymbols)
+    expect(graph!.nodes[0].typeClassId).toBeDefined()
+    expect(graph!.nodes[1].typeClassId).toBeDefined()
+
+    // Should be in a new "Callstack" tab
+    const activeTab = tabs.find(t => t.id === activeTabId)
+    expect(activeTab!.label).toBe('Callstack')
+
+    // selectedClass should be null (callstack mode)
+    expect(getState().selectedClass).toBeNull()
+  })
+
+  it('loadCallstack with duplicate classes produces separate nodes', async () => {
+    const callstack = `\tPCASTBatch::Dispatch::__l229::<lambda>\tC++
+\tPCASTBatch::Dispatch\tC++`
+
+    await getState().loadCallstack(callstack)
+
+    const { graph } = getState()
+    expect(graph).not.toBeNull()
+    // Each frame gets its own node even though same class
+    expect(graph!.nodes).toHaveLength(2)
+    expect(graph!.nodes[0].id).toBe('cs-frame-0')
+    expect(graph!.nodes[1].id).toBe('cs-frame-1')
+    expect(graph!.edges).toHaveLength(1)
   })
 })

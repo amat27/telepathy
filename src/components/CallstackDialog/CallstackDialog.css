@@ -1,0 +1,111 @@
+/* ============================================================
+   Callstack Dialog — overlay + modal
+   ============================================================ */
+
+.callstack-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.callstack-dialog {
+  width: min(640px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.callstack-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 16px 20px 8px;
+}
+
+.callstack-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.callstack-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.callstack-textarea {
+  flex: 1;
+  min-height: 240px;
+  margin: 0 12px;
+  padding: 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: var(--font-mono, 'Cascadia Code', 'Fira Code', monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+.callstack-textarea:focus {
+  border-color: var(--text-accent);
+}
+
+.callstack-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.callstack-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 16px;
+}
+
+.callstack-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.callstack-btn.cancel {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.callstack-btn.cancel:hover {
+  background: var(--bg-hover);
+}
+
+.callstack-btn.submit {
+  background: var(--text-accent);
+  color: var(--bg-primary);
+  border-color: var(--text-accent);
+  font-weight: 600;
+}
+
+.callstack-btn.submit:hover {
+  opacity: 0.9;
+}
+
+.callstack-btn.submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

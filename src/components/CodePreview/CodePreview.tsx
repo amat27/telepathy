@@ -12,7 +12,8 @@ type SortKey = 'name' | 'kind' | 'line'
 type GroupMode = 'none' | 'kind' | 'origin'
 
 export function CodePreview() {
-  const { selectedClass, selectedMember, selectedMembers, sourceCode, sourceFile, sourceLine, selectMember, toggleMember } = useAppStore()
+  const { selectedClass, previewedClass, selectedMember, selectedMembers, sourceCode, sourceFile, sourceLine, selectMember, toggleMember } = useAppStore()
+  const displayClass = previewedClass ?? selectedClass
   const sourceRef = useRef<HTMLPreElement>(null)
 
   // Local UI state for member list controls
@@ -23,7 +24,7 @@ export function CodePreview() {
   // Reset filter when class changes
   useEffect(() => {
     setMemberFilter('')
-  }, [selectedClass?.id])
+  }, [displayClass?.id])
 
   // Scroll to the highlighted line when source changes
   useEffect(() => {
@@ -37,8 +38,8 @@ export function CodePreview() {
 
   // Filter + sort members
   const processedMembers = useMemo(() => {
-    if (!selectedClass?.members) return []
-    let list = selectedClass.members
+    if (!displayClass?.members) return []
+    let list = displayClass.members
 
     // Filter
     if (memberFilter) {
@@ -59,7 +60,7 @@ export function CodePreview() {
     })
 
     return list
-  }, [selectedClass?.members, memberFilter, sortBy])
+  }, [displayClass?.members, memberFilter, sortBy])
 
   // Group members by kind or origin
   const groupedMembers = useMemo(() => {
@@ -88,7 +89,7 @@ export function CodePreview() {
     return groups
   }, [processedMembers, groupBy])
 
-  if (!selectedClass) {
+  if (!displayClass) {
     return (
       <div className="code-preview-empty">
         <p>Select a class to view details</p>
@@ -96,7 +97,7 @@ export function CodePreview() {
     )
   }
 
-  const totalCount = selectedClass.members?.length ?? 0
+  const totalCount = displayClass.members?.length ?? 0
   const filteredCount = processedMembers.length
 
   const handleMemberClick = (member: CodeSymbol, e: React.MouseEvent) => {
@@ -111,7 +112,7 @@ export function CodePreview() {
   return (
     <div className="code-preview">
       <div className="code-header">
-        <span className="code-title">{selectedClass.name}</span>
+        <span className="code-title">{displayClass.name}</span>
         {sourceFile && (
           <span className="code-path" title={sourceFile}>
             {sourceFile.split(/[\\/]/).slice(-3).join('/')}
