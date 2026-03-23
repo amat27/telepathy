@@ -63,6 +63,23 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Collapse button in tree header */
+.panel-collapse-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+.panel-collapse-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .tree-list {
   flex: 1;
   overflow-y: auto;

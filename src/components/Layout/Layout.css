@@ -1,9 +1,32 @@
 .main-layout {
   flex: 1;
   overflow: hidden;
+  display: flex;
 }
 
 .panel {
   height: 100%;
   overflow: hidden;
+}
+
+/* Expand strip when left panel is collapsed */
+.panel-expand-strip {
+  width: 24px;
+  min-width: 24px;
+  background: var(--bg-secondary);
+  border: none;
+  border-right: 1px solid var(--border-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s;
+}
+.panel-expand-strip:hover {
+  background: var(--bg-hover);
+}
+.expand-icon {
+  color: var(--text-muted);
+  font-size: 12px;
 }

@@ -9,7 +9,7 @@ import type { SymbolSummary } from '../../types/model'
 import * as api from '../../api'
 import './SymbolTree.css'
 
-export function SymbolTree() {
+export function SymbolTree({ onCollapse }: { onCollapse?: () => void } = {}) {
   const {
     classes,
     classFilter,
@@ -52,6 +52,13 @@ export function SymbolTree() {
           onChange={e => setClassFilter(e.target.value)}
         />
         <span className="tree-count">{classes.length}</span>
+        {onCollapse && (
+          <button
+            className="panel-collapse-btn"
+            onClick={onCollapse}
+            title="Collapse panel"
+          >&#x276E;</button>
+        )}
       </div>
 
       <div className="tree-list">
