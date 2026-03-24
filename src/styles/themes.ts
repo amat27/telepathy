@@ -39,6 +39,18 @@ const catppuccinMocha: ThemeDefinition = {
     '--color-inherit-edge': '#f9e2af',
     '--color-call-edge': '#89b4fa',
     '--color-type-edge': '#cba6f7',
+    // Shiki syntax highlighting tokens
+    '--shiki-foreground': '#cdd6f4',
+    '--shiki-background': '#1e1e2e',
+    '--shiki-token-keyword': '#cba6f7',
+    '--shiki-token-string': '#a6e3a1',
+    '--shiki-token-string-expression': '#a6e3a1',
+    '--shiki-token-comment': '#6c7086',
+    '--shiki-token-function': '#89b4fa',
+    '--shiki-token-constant': '#fab387',
+    '--shiki-token-parameter': '#f2cdcd',
+    '--shiki-token-punctuation': '#9399b2',
+    '--shiki-token-link': '#89b4fa',
   },
 }
 
@@ -69,6 +81,18 @@ const oneDark: ThemeDefinition = {
     '--color-inherit-edge': '#e5c07b',
     '--color-call-edge': '#61afef',
     '--color-type-edge': '#c678dd',
+    // Shiki syntax highlighting tokens
+    '--shiki-foreground': '#abb2bf',
+    '--shiki-background': '#282c34',
+    '--shiki-token-keyword': '#c678dd',
+    '--shiki-token-string': '#98c379',
+    '--shiki-token-string-expression': '#98c379',
+    '--shiki-token-comment': '#5c6370',
+    '--shiki-token-function': '#61afef',
+    '--shiki-token-constant': '#d19a66',
+    '--shiki-token-parameter': '#e06c75',
+    '--shiki-token-punctuation': '#abb2bf',
+    '--shiki-token-link': '#61afef',
   },
 }
 
@@ -99,6 +123,18 @@ const tokyoNight: ThemeDefinition = {
     '--color-inherit-edge': '#e0af68',
     '--color-call-edge': '#7aa2f7',
     '--color-type-edge': '#bb9af7',
+    // Shiki syntax highlighting tokens
+    '--shiki-foreground': '#c0caf5',
+    '--shiki-background': '#1a1b26',
+    '--shiki-token-keyword': '#bb9af7',
+    '--shiki-token-string': '#9ece6a',
+    '--shiki-token-string-expression': '#9ece6a',
+    '--shiki-token-comment': '#565f89',
+    '--shiki-token-function': '#7aa2f7',
+    '--shiki-token-constant': '#ff9e64',
+    '--shiki-token-parameter': '#e0af68',
+    '--shiki-token-punctuation': '#9aa5ce',
+    '--shiki-token-link': '#7aa2f7',
   },
 }
 
@@ -131,6 +167,18 @@ const catppuccinLatte: ThemeDefinition = {
     '--color-inherit-edge': '#df8e1d',
     '--color-call-edge': '#1e66f5',
     '--color-type-edge': '#8839ef',
+    // Shiki syntax highlighting tokens
+    '--shiki-foreground': '#4c4f69',
+    '--shiki-background': '#eff1f5',
+    '--shiki-token-keyword': '#8839ef',
+    '--shiki-token-string': '#40a02b',
+    '--shiki-token-string-expression': '#40a02b',
+    '--shiki-token-comment': '#8c8fa1',
+    '--shiki-token-function': '#1e66f5',
+    '--shiki-token-constant': '#fe640b',
+    '--shiki-token-parameter': '#dd7878',
+    '--shiki-token-punctuation': '#7c7f93',
+    '--shiki-token-link': '#1e66f5',
   },
 }
 
@@ -161,6 +209,18 @@ const githubLight: ThemeDefinition = {
     '--color-inherit-edge': '#953800',
     '--color-call-edge': '#0550ae',
     '--color-type-edge': '#8250df',
+    // Shiki syntax highlighting tokens
+    '--shiki-foreground': '#1f2328',
+    '--shiki-background': '#ffffff',
+    '--shiki-token-keyword': '#cf222e',
+    '--shiki-token-string': '#0a3069',
+    '--shiki-token-string-expression': '#0a3069',
+    '--shiki-token-comment': '#6e7781',
+    '--shiki-token-function': '#8250df',
+    '--shiki-token-constant': '#0550ae',
+    '--shiki-token-parameter': '#953800',
+    '--shiki-token-punctuation': '#1f2328',
+    '--shiki-token-link': '#0969da',
   },
 }
 
@@ -191,6 +251,18 @@ const solarizedLight: ThemeDefinition = {
     '--color-inherit-edge': '#b58900',
     '--color-call-edge': '#268bd2',
     '--color-type-edge': '#6c71c4',
+    // Shiki syntax highlighting tokens
+    '--shiki-foreground': '#586e75',
+    '--shiki-background': '#fdf6e3',
+    '--shiki-token-keyword': '#859900',
+    '--shiki-token-string': '#2aa198',
+    '--shiki-token-string-expression': '#2aa198',
+    '--shiki-token-comment': '#93a1a1',
+    '--shiki-token-function': '#268bd2',
+    '--shiki-token-constant': '#cb4b16',
+    '--shiki-token-parameter': '#b58900',
+    '--shiki-token-punctuation': '#586e75',
+    '--shiki-token-link': '#268bd2',
   },
 }
 

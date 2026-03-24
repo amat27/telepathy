@@ -354,3 +354,8 @@
   white-space: pre;
   flex: 1;
 }
+
+/* Shiki token spans inherit whitespace handling */
+.line-content span {
+  white-space: pre;
+}

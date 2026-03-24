@@ -6,6 +6,8 @@ import { useRef, useEffect, useCallback, useState, useMemo, forwardRef } from 'r
 import { useAppStore } from '../../stores/appStore'
 import { SymbolKind } from '../../types/model'
 import type { CodeSymbol } from '../../types/model'
+import { highlightCode, detectLang } from '../../lib/highlighter'
+import type { HighlightToken } from '../../lib/highlighter'
 import './CodePreview.css'
 
 type SortKey = 'name' | 'kind' | 'line'
@@ -200,7 +202,7 @@ export function CodePreview() {
           )}
           {sourceLine > 0 && <span className="source-line-info">:{sourceLine}</span>}
         </div>
-        <SourceCodeView code={sourceCode} highlightLine={sourceLine} ref={sourceRef} />
+        <SourceCodeView code={sourceCode} highlightLine={sourceLine} filePath={sourceFile} ref={sourceRef} />
       </div>
     </div>
   )
@@ -226,10 +228,15 @@ function kindGroupLabel(kind: SymbolKind): string {
   }
 }
 
-// ---- Source Code Viewer with line highlighting ----
+// ---- Source Code Viewer with syntax highlighting ----
 
-const SourceCodeView = forwardRef<HTMLPreElement, { code: string; highlightLine: number }>(
-  ({ code, highlightLine }, ref) => {
+interface ParsedLine {
+  num: number
+  text: string
+}
+
+const SourceCodeView = forwardRef<HTMLPreElement, { code: string; highlightLine: number; filePath: string | null }>(
+  ({ code, highlightLine, filePath }, ref) => {
     if (!code) {
       return (
         <pre className="source-code" ref={ref}>
@@ -238,25 +245,44 @@ const SourceCodeView = forwardRef<HTMLPreElement, { code: string; highlightLine:
       )
     }
 
-    const lines = code.split(/\r?\n/).map(raw => {
+    // Parse line numbers and extract raw text
+    const parsed: ParsedLine[] = code.split(/\r?\n/).map(raw => {
       const match = raw.match(/^(\d+): (.*)$/)
-      if (match) {
-        return { num: parseInt(match[1], 10), text: match[2] }
-      }
-      return { num: 0, text: raw }
+      return match
+        ? { num: parseInt(match[1], 10), text: match[2] }
+        : { num: 0, text: raw }
     })
+
+    // Tokenize with Shiki (memoized by raw code content + filePath)
+    const tokens = useMemo(() => {
+      const lang = detectLang(filePath)
+      if (!lang) return null
+      const rawCode = parsed.map(l => l.text).join('\n')
+      try {
+        return highlightCode(rawCode, lang)
+      } catch {
+        return null // fallback to plain text on error
+      }
+    }, [code, filePath])
 
     return (
       <pre className="source-code" ref={ref}>
         <code>
-          {lines.map((line, i) => (
+          {parsed.map((line, i) => (
             <div
               key={i}
               className={`source-line ${line.num === highlightLine ? 'highlighted' : ''}`}
               data-line={line.num}
             >
               <span className="line-number">{line.num || ''}</span>
-              <span className="line-content">{line.text}</span>
+              <span className="line-content">
+                {tokens && tokens[i]
+                  ? tokens[i].map((tok, j) => (
+                      <span key={j} style={tokenStyle(tok)}>{tok.content}</span>
+                    ))
+                  : line.text
+                }
+              </span>
             </div>
           ))}
         </code>
@@ -265,6 +291,16 @@ const SourceCodeView = forwardRef<HTMLPreElement, { code: string; highlightLine:
   }
 )
 SourceCodeView.displayName = 'SourceCodeView'
+
+/** Convert Shiki token to inline style */
+function tokenStyle(tok: HighlightToken): React.CSSProperties | undefined {
+  const style: React.CSSProperties = {}
+  if (tok.color) style.color = tok.color
+  if (tok.fontStyle & 1) style.fontStyle = 'italic'
+  if (tok.fontStyle & 2) style.fontWeight = 'bold'
+  if (tok.fontStyle & 4) style.textDecoration = 'underline'
+  return Object.keys(style).length ? style : undefined
+}
 
 // ---- Member Item ----
 
