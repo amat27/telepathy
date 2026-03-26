@@ -14,7 +14,7 @@ type SortKey = 'name' | 'kind' | 'line'
 type GroupMode = 'none' | 'kind' | 'origin'
 
 export function CodePreview() {
-  const { selectedClass, previewedClass, selectedMember, selectedMembers, sourceCode, sourceFile, sourceLine, selectMember, toggleMember } = useAppStore()
+  const { selectedClass, previewedClass, selectedMember, selectedMembers, sourceCode, sourceFile, sourceLine, selectMember, toggleMember, togglePinMember, pinnedMembers } = useAppStore()
   const displayClass = previewedClass ?? selectedClass
   const sourceRef = useRef<HTMLPreElement>(null)
 
@@ -104,8 +104,11 @@ export function CodePreview() {
 
   const handleMemberClick = (member: CodeSymbol, e: React.MouseEvent) => {
     if (e.ctrlKey || e.metaKey) {
-      // Ctrl+click toggles selection for graph display
-      toggleMember(member)
+      // Ctrl+Click pins/unpins member to graph (persistent across navigation)
+      const classId = displayClass?.id
+      if (classId) {
+        togglePinMember(member, classId)
+      }
     } else {
       selectMember(member)
     }
@@ -165,6 +168,7 @@ export function CodePreview() {
                   member={m}
                   isActive={selectedMember?.id === m.id}
                   isSelected={selectedMembers.has(m.id)}
+                  isPinned={pinnedMembers.has(m.id)}
                   onClick={(e) => handleMemberClick(m, e)}
                 />
               ))
@@ -180,6 +184,7 @@ export function CodePreview() {
                       member={m}
                       isActive={selectedMember?.id === m.id}
                       isSelected={selectedMembers.has(m.id)}
+                      isPinned={pinnedMembers.has(m.id)}
                       onClick={(e) => handleMemberClick(m, e)}
                     />
                   ))}
@@ -318,16 +323,18 @@ function MemberItem({
   member,
   isActive,
   isSelected,
+  isPinned,
   onClick,
 }: {
   member: CodeSymbol
   isActive: boolean
   isSelected: boolean
+  isPinned: boolean
   onClick: (e: React.MouseEvent) => void
 }) {
   return (
     <div
-      className={`member-item ${isActive ? 'active' : ''} ${isSelected ? 'pinned' : ''} ${member.inheritedFrom ? 'inherited' : ''}`}
+      className={`member-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isPinned ? 'pinned' : ''} ${member.inheritedFrom ? 'inherited' : ''}`}
       onClick={onClick}
       title={member.inheritedFrom ? `Inherited from ${member.inheritedFrom}` : undefined}
     >
@@ -344,7 +351,8 @@ function MemberItem({
       {member.returnType && (
         <span className="member-type">{member.returnType}</span>
       )}
-      {isSelected && <span className="pin-indicator">*</span>}
+      {isPinned && <span className="pin-indicator" title="Pinned">{'\u{1F4CC}'}</span>}
+      {isSelected && !isPinned && <span className="pin-indicator">*</span>}
     </div>
   )
 }

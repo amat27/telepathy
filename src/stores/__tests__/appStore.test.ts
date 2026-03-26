@@ -403,3 +403,168 @@ describe('Tab Management', () => {
     expect(graph!.edges).toHaveLength(1)
   })
 })
+
+// ============================================================
+// Pin Feature Tests
+// ============================================================
+
+describe('Pin Feature', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      ...defaultTabState(),
+      isConnected: true,
+      dbPath: '/test.db',
+      activeTabId: 'pin-test-tab',
+      tabs: [{
+        id: 'pin-test-tab',
+        label: 'Test',
+        state: defaultTabState(),
+      }],
+    })
+  })
+
+  describe('togglePinClass', () => {
+    it('pins a class by fetching its detail', async () => {
+      await getState().togglePinClass('c1')
+
+      const { pinnedClasses } = getState()
+      expect(pinnedClasses.size).toBe(1)
+      expect(pinnedClasses.has('c1')).toBe(true)
+      expect(pinnedClasses.get('c1')!.name).toBe('Class_c1')
+    })
+
+    it('unpins a previously pinned class', async () => {
+      await getState().togglePinClass('c1')
+      expect(getState().pinnedClasses.size).toBe(1)
+
+      await getState().togglePinClass('c1')
+      expect(getState().pinnedClasses.size).toBe(0)
+    })
+
+    it('removes child pinned members when unpinning a class', async () => {
+      await getState().togglePinClass('c1')
+
+      // Manually add a pinned member belonging to c1
+      const member = { id: 'm1', name: 'field', qualifiedName: 'c1::field', kind: 'member' as any, location: { file: 'test.cpp', line: 1, column: 0 } }
+      getState().togglePinMember(member, 'c1')
+      expect(getState().pinnedMembers.size).toBe(1)
+
+      // Unpin the class — member should also be removed
+      await getState().togglePinClass('c1')
+      expect(getState().pinnedClasses.size).toBe(0)
+      expect(getState().pinnedMembers.size).toBe(0)
+    })
+
+    it('can pin multiple classes', async () => {
+      await getState().togglePinClass('c1')
+      await getState().togglePinClass('c2')
+
+      expect(getState().pinnedClasses.size).toBe(2)
+      expect(getState().pinnedClasses.has('c1')).toBe(true)
+      expect(getState().pinnedClasses.has('c2')).toBe(true)
+    })
+  })
+
+  describe('togglePinMember', () => {
+    it('pins a member and auto-pins its parent class', async () => {
+      const member = { id: 'm1', name: 'doStuff', qualifiedName: 'c1::doStuff', kind: 'member_function' as any, location: { file: 'test.cpp', line: 5, column: 0 } }
+
+      getState().togglePinMember(member, 'c1')
+
+      const { pinnedMembers } = getState()
+      expect(pinnedMembers.size).toBe(1)
+      expect(pinnedMembers.get('m1')!.classId).toBe('c1')
+      expect(pinnedMembers.get('m1')!.member.name).toBe('doStuff')
+
+      // Parent class should be auto-pinned (async, wait for it)
+      await vi.waitFor(() => {
+        expect(getState().pinnedClasses.has('c1')).toBe(true)
+      })
+    })
+
+    it('unpins a previously pinned member', () => {
+      const member = { id: 'm1', name: 'doStuff', qualifiedName: 'c1::doStuff', kind: 'member_function' as any, location: { file: 'test.cpp', line: 5, column: 0 } }
+
+      getState().togglePinMember(member, 'c1')
+      expect(getState().pinnedMembers.size).toBe(1)
+
+      getState().togglePinMember(member, 'c1')
+      expect(getState().pinnedMembers.size).toBe(0)
+    })
+
+    it('does not duplicate parent class if already pinned', async () => {
+      await getState().togglePinClass('c1')
+      expect(getState().pinnedClasses.size).toBe(1)
+
+      const member = { id: 'm1', name: 'doStuff', qualifiedName: 'c1::doStuff', kind: 'member_function' as any, location: { file: 'test.cpp', line: 5, column: 0 } }
+      getState().togglePinMember(member, 'c1')
+
+      // Still just 1 pinned class
+      expect(getState().pinnedClasses.size).toBe(1)
+      expect(getState().pinnedMembers.size).toBe(1)
+    })
+  })
+
+  describe('unpinAll', () => {
+    it('clears all pinned classes and members', async () => {
+      await getState().togglePinClass('c1')
+      await getState().togglePinClass('c2')
+      const member = { id: 'm1', name: 'field', qualifiedName: 'c1::field', kind: 'member' as any, location: { file: 'test.cpp', line: 1, column: 0 } }
+      getState().togglePinMember(member, 'c1')
+
+      expect(getState().pinnedClasses.size).toBe(2)
+      expect(getState().pinnedMembers.size).toBe(1)
+
+      getState().unpinAll()
+
+      expect(getState().pinnedClasses.size).toBe(0)
+      expect(getState().pinnedMembers.size).toBe(0)
+    })
+  })
+
+  describe('navigation preserves pins', () => {
+    it('selectClass does not clear pinned state', async () => {
+      await getState().togglePinClass('c1')
+      const member = { id: 'm1', name: 'field', qualifiedName: 'c1::field', kind: 'member' as any, location: { file: 'test.cpp', line: 1, column: 0 } }
+      getState().togglePinMember(member, 'c1')
+
+      // Navigate to another class
+      await getState().selectClass('c2')
+
+      // Pins should survive
+      expect(getState().pinnedClasses.size).toBe(1)
+      expect(getState().pinnedClasses.has('c1')).toBe(true)
+      expect(getState().pinnedMembers.size).toBe(1)
+    })
+
+    it('goBack does not clear pinned state', async () => {
+      await getState().selectClass('c1')
+      await getState().togglePinClass('c1')
+
+      await getState().selectClass('c2')
+      await getState().goBack()
+
+      expect(getState().pinnedClasses.has('c1')).toBe(true)
+    })
+
+    it('pins survive tab switch round-trip', async () => {
+      await getState().togglePinClass('c1')
+      expect(getState().pinnedClasses.has('c1')).toBe(true)
+
+      // Create a new tab (saves current tab state)
+      await getState().createTab()
+      const newTabId = getState().activeTabId!
+
+      // New tab should start with empty pins
+      expect(getState().pinnedClasses.size).toBe(0)
+
+      // Switch back to original tab
+      getState().switchTab('pin-test-tab')
+      expect(getState().pinnedClasses.has('c1')).toBe(true)
+
+      // Clean up: switch back and close
+      getState().switchTab(newTabId)
+      getState().closeTab(newTabId)
+    })
+  })
+})

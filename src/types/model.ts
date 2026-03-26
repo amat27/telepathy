@@ -67,6 +67,17 @@ export interface CodeGraph {
 }
 
 // ============================================================
+// Pinned Items
+// ============================================================
+
+/** A member pinned to the graph (survives navigation) */
+export interface PinnedMember {
+  member: CodeSymbol       // the member itself (with typeClassId, returnType, etc.)
+  classId: string          // parent class id
+  className: string        // parent class display name
+}
+
+// ============================================================
 // Tab Management
 // ============================================================
 
@@ -85,6 +96,8 @@ export interface TabState {
   navBackStack: string[]
   navForwardStack: string[]
   leftPanelOpen: boolean              // per-tab left panel visibility
+  pinnedClasses: Map<string, CodeSymbol>     // classId → class detail (survives navigation)
+  pinnedMembers: Map<string, PinnedMember>   // memberId → pinned member info (survives navigation)
 }
 
 /** Tab metadata + stored state for background tabs */

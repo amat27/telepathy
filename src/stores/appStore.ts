@@ -4,7 +4,7 @@
 // ============================================================
 
 import { create } from 'zustand'
-import type { CodeSymbol, CodeGraph, SymbolSummary, SymbolEdge, TabState, TabInfo } from '../types/model'
+import type { CodeSymbol, CodeGraph, SymbolSummary, SymbolEdge, TabState, TabInfo, PinnedMember } from '../types/model'
 import { EdgeKind, SymbolKind } from '../types/model'
 import * as api from '../api'
 import { parseCallstack, resolveCallstack } from '../utils/callstackParser'
@@ -32,6 +32,8 @@ export function defaultTabState(): TabState {
     navBackStack: [],
     navForwardStack: [],
     leftPanelOpen: true,
+    pinnedClasses: new Map<string, CodeSymbol>(),
+    pinnedMembers: new Map<string, PinnedMember>(),
   }
 }
 
@@ -51,6 +53,8 @@ export function captureTabState(state: AppState): TabState {
     navBackStack: state.navBackStack,
     navForwardStack: state.navForwardStack,
     leftPanelOpen: state.leftPanelOpen,
+    pinnedClasses: state.pinnedClasses,
+    pinnedMembers: state.pinnedMembers,
   }
 }
 
@@ -80,6 +84,8 @@ interface AppState {
   navBackStack: string[]
   navForwardStack: string[]
   leftPanelOpen: boolean
+  pinnedClasses: Map<string, CodeSymbol>
+  pinnedMembers: Map<string, PinnedMember>
 
   // --- Tab management ---
   tabs: TabInfo[]
@@ -106,6 +112,9 @@ interface AppState {
   previewClass: (classId: string) => Promise<void>
   selectMember: (member: CodeSymbol) => Promise<void>
   toggleMember: (member: CodeSymbol) => void
+  togglePinClass: (classId: string) => Promise<void>
+  togglePinMember: (member: CodeSymbol, classId: string) => void
+  unpinAll: () => void
   loadHierarchy: (classId: string) => Promise<void>
   loadSource: (file: string, line: number) => Promise<void>
   loadCallstack: (text: string) => void
@@ -147,6 +156,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   navBackStack: [],
   navForwardStack: [],
   leftPanelOpen: true,
+  pinnedClasses: new Map<string, CodeSymbol>(),
+  pinnedMembers: new Map<string, PinnedMember>(),
 
   // Tabs
   tabs: [initialTab],
@@ -613,6 +624,69 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (get().activeTabId !== myTabId) return
       set({ isLoadingDetail: false, isLoadingGraph: false })
     }
+  },
+
+  togglePinClass: async (classId: string) => {
+    const myTabId = get().activeTabId
+    const pinned = get().pinnedClasses
+
+    if (pinned.has(classId)) {
+      // Unpin — remove class and any members belonging to it
+      const nextClasses = new Map(pinned)
+      nextClasses.delete(classId)
+      const nextMembers = new Map(get().pinnedMembers)
+      for (const [key, pm] of nextMembers) {
+        if (pm.classId === classId) nextMembers.delete(key)
+      }
+      set({ pinnedClasses: nextClasses, pinnedMembers: nextMembers })
+    } else {
+      // Pin — fetch class detail then store
+      try {
+        const detail = await api.getClassDetail(classId)
+        if (get().activeTabId !== myTabId) return
+        if (!detail) return
+        const nextClasses = new Map(get().pinnedClasses)
+        nextClasses.set(classId, detail)
+        set({ pinnedClasses: nextClasses })
+      } catch (err) {
+        console.error('Failed to pin class:', err)
+      }
+    }
+  },
+
+  togglePinMember: (member: CodeSymbol, classId: string) => {
+    const pinned = get().pinnedMembers
+    const key = member.id
+
+    if (pinned.has(key)) {
+      // Unpin member
+      const next = new Map(pinned)
+      next.delete(key)
+      set({ pinnedMembers: next })
+    } else {
+      // Pin member — also ensure parent class is pinned
+      const next = new Map(pinned)
+      // Resolve parent class name from selectedClass or pinnedClasses
+      const parentClass = get().selectedClass?.id === classId
+        ? get().selectedClass
+        : get().pinnedClasses.get(classId) ?? null
+      const className = parentClass?.name ?? classId
+
+      next.set(key, { member, classId, className })
+      set({ pinnedMembers: next })
+
+      // Auto-pin parent class if not already pinned
+      if (!get().pinnedClasses.has(classId)) {
+        get().togglePinClass(classId)
+      }
+    }
+  },
+
+  unpinAll: () => {
+    set({
+      pinnedClasses: new Map<string, CodeSymbol>(),
+      pinnedMembers: new Map<string, PinnedMember>(),
+    })
   },
 
   setLeftPanelOpen: (open: boolean) => {
