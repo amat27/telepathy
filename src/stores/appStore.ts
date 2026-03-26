@@ -8,6 +8,8 @@ import type { CodeSymbol, CodeGraph, SymbolSummary, SymbolEdge, TabState, TabInf
 import { EdgeKind, SymbolKind } from '../types/model'
 import * as api from '../api'
 import { parseCallstack, resolveCallstack } from '../utils/callstackParser'
+import { buildSessionKey, serializeSession, type PendingTabRestore } from './sessionSerializer'
+import type { SessionData } from '../../electron/storage/types'
 
 // ---- Tab helpers ----
 
@@ -91,6 +93,9 @@ interface AppState {
   tabs: TabInfo[]
   activeTabId: string | null
 
+  // --- Session restore (transient) ---
+  tabRestoreQueue: Map<string, PendingTabRestore>
+
   // Search
   searchQuery: string
   searchResults: SymbolSummary[]
@@ -163,6 +168,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   tabs: [initialTab],
   activeTabId: initialTabId,
 
+  // Session restore
+  tabRestoreQueue: new Map<string, PendingTabRestore>(),
+
   searchQuery: '',
   searchResults: [],
   isSearching: false,
@@ -172,21 +180,67 @@ export const useAppStore = create<AppState>((set, get) => ({
   openDatabase: async (dbPath: string) => {
     try {
       await api.initPlugin('vs-browse-db', dbPath)
-      // Reset to a single fresh tab
-      const freshTabId = generateTabId()
-      const freshTab: TabInfo = {
-        id: freshTabId,
-        label: 'New Tab',
-        state: defaultTabState(),
+
+      // Try to load saved session
+      const sessionKey = buildSessionKey('vs-browse-db', dbPath)
+      let session: SessionData | null = null
+      try {
+        session = await api.sessionLoad(sessionKey)
+      } catch { /* ignore load failure */ }
+
+      if (session && session.tabs.length > 0) {
+        // ---- Restore from saved session ----
+        const restoreQueue = new Map<string, PendingTabRestore>()
+        const restoredTabs: TabInfo[] = session.tabs.map(st => {
+          restoreQueue.set(st.id, { serialized: st })
+          return { id: st.id, label: st.label, state: defaultTabState() }
+        })
+
+        // Advance nextTabId past any restored IDs to avoid collisions
+        for (const st of session.tabs) {
+          const match = st.id.match(/^tab-(\d+)$/)
+          if (match) {
+            const num = parseInt(match[1], 10) + 1
+            if (num > nextTabId) nextTabId = num
+          }
+        }
+
+        // Use saved activeTabId, fallback to first tab
+        const activeId = session.tabs.find(t => t.id === session!.activeTabId)
+          ? session.activeTabId
+          : session.tabs[0].id
+
+        set({
+          isConnected: true,
+          dbPath,
+          tabs: restoredTabs,
+          activeTabId: activeId,
+          tabRestoreQueue: restoreQueue,
+          ...defaultTabState(),
+        })
+
+        await get().loadClasses()
+
+        // Immediately rehydrate the active tab
+        await rehydrateActiveTab(activeId)
+      } else {
+        // ---- No session — fresh start ----
+        const freshTabId = generateTabId()
+        const freshTab: TabInfo = {
+          id: freshTabId,
+          label: 'New Tab',
+          state: defaultTabState(),
+        }
+        set({
+          isConnected: true,
+          dbPath,
+          tabs: [freshTab],
+          activeTabId: freshTabId,
+          tabRestoreQueue: new Map(),
+          ...defaultTabState(),
+        })
+        await get().loadClasses()
       }
-      set({
-        isConnected: true,
-        dbPath,
-        tabs: [freshTab],
-        activeTabId: freshTabId,
-        ...defaultTabState(),
-      })
-      await get().loadClasses()
     } catch (err) {
       console.error('Failed to open database:', err)
       throw err
@@ -326,6 +380,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       tabs: updatedTabs,
       activeTabId: tabId,
     })
+
+    // Lazy rehydrate if this tab is pending restore
+    if (state.tabRestoreQueue.has(tabId)) {
+      rehydrateActiveTab(tabId)
+    }
   },
 
   // ---- Per-tab actions ----
@@ -698,3 +757,152 @@ export const useAppStore = create<AppState>((set, get) => ({
 if (typeof window !== 'undefined') {
   ;(window as any).__telepathyStore = useAppStore
 }
+
+// ============================================================
+// Session restore — rehydrate a tab from saved IDs
+// ============================================================
+
+async function rehydrateActiveTab(tabId: string): Promise<void> {
+  const get = () => useAppStore.getState()
+  const set = (partial: Partial<AppState> | ((s: AppState) => Partial<AppState>)) =>
+    useAppStore.setState(partial)
+
+  const queue = get().tabRestoreQueue
+  const pending = queue.get(tabId)
+  if (!pending) return
+
+  const { serialized } = pending
+
+  // Show loading state
+  set({ isLoadingDetail: true, isLoadingGraph: true })
+
+  try {
+    // 1. Fetch selected class + graph
+    let selectedClass: CodeSymbol | null = null
+    let graph: CodeGraph | null = null
+
+    if (serialized.selectedClassId) {
+      const [detail, hierarchy] = await Promise.all([
+        api.getClassDetail(serialized.selectedClassId),
+        api.getClassHierarchy(serialized.selectedClassId),
+      ])
+      if (get().activeTabId !== tabId) return
+      selectedClass = detail
+      graph = hierarchy
+    }
+
+    // 2. Fetch pinned class details
+    const pinnedClasses = new Map<string, CodeSymbol>()
+    if (serialized.pinnedClassIds.length > 0) {
+      const details = await Promise.all(
+        serialized.pinnedClassIds.map(id => api.getClassDetail(id))
+      )
+      if (get().activeTabId !== tabId) return
+      for (const detail of details) {
+        if (detail) pinnedClasses.set(detail.id, detail)
+      }
+    }
+
+    // 3. Restore pinned members from their parent class's members[]
+    const pinnedMembers = new Map<string, PinnedMember>()
+    for (const entry of serialized.pinnedMemberEntries) {
+      const parentClass = pinnedClasses.get(entry.classId)
+        ?? (selectedClass?.id === entry.classId ? selectedClass : null)
+      if (!parentClass?.members) continue
+      const member = parentClass.members.find(m => m.id === entry.memberId)
+      if (member) {
+        pinnedMembers.set(member.id, {
+          member,
+          classId: entry.classId,
+          className: parentClass.name,
+        })
+      }
+    }
+
+    // 4. Restore selected member
+    let selectedMember: CodeSymbol | null = null
+    if (serialized.selectedMemberId && selectedClass?.members) {
+      selectedMember = selectedClass.members.find(
+        m => m.id === serialized.selectedMemberId
+      ) ?? null
+    }
+
+    // 5. Guard: tab may have changed
+    if (get().activeTabId !== tabId) return
+
+    // 6. Remove from queue + apply state
+    const nextQueue = new Map(get().tabRestoreQueue)
+    nextQueue.delete(tabId)
+
+    set(s => ({
+      selectedClass,
+      graph,
+      selectedMember,
+      selectedMembers: new Set(serialized.selectedMemberIds),
+      pinnedClasses,
+      pinnedMembers,
+      navBackStack: [...serialized.navBackStack],
+      navForwardStack: [...serialized.navForwardStack],
+      leftPanelOpen: serialized.leftPanelOpen,
+      isLoadingDetail: false,
+      isLoadingGraph: false,
+      tabRestoreQueue: nextQueue,
+      tabs: s.tabs.map(t =>
+        t.id === tabId ? { ...t, label: selectedClass?.name ?? serialized.label } : t
+      ),
+    }))
+
+    // 7. Load source code
+    if (selectedMember?.location) {
+      if (get().activeTabId !== tabId) return
+      await useAppStore.getState().loadSource(selectedMember.location.file, selectedMember.location.line)
+    } else if (selectedClass?.location) {
+      if (get().activeTabId !== tabId) return
+      await useAppStore.getState().loadSource(selectedClass.location.file, selectedClass.location.line)
+    }
+  } catch (err) {
+    console.error(`Failed to rehydrate tab ${tabId}:`, err)
+    if (get().activeTabId !== tabId) return
+    const nextQueue = new Map(get().tabRestoreQueue)
+    nextQueue.delete(tabId)
+    set({
+      tabRestoreQueue: nextQueue,
+      isLoadingDetail: false,
+      isLoadingGraph: false,
+    })
+  }
+}
+
+// ============================================================
+// Auto-save — debounced session persistence on state changes
+// ============================================================
+
+const SAVE_DEBOUNCE_MS = 2000
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleSave(): void {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    const state = useAppStore.getState()
+    if (!state.isConnected || !state.dbPath) return
+
+    const sessionData = serializeSession(
+      'vs-browse-db',
+      state.dbPath,
+      state.activeTabId!,
+      captureTabState(state),
+      state.tabs,
+      state.tabRestoreQueue,
+    )
+
+    const key = buildSessionKey('vs-browse-db', state.dbPath)
+    try {
+      await api.sessionSave(key, sessionData)
+    } catch (err) {
+      console.error('Failed to auto-save session:', err)
+    }
+  }, SAVE_DEBOUNCE_MS)
+}
+
+// Subscribe to all state changes
+useAppStore.subscribe(scheduleSave)

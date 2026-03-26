@@ -8,9 +8,13 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc/handlers'
 import { PluginManager } from '../plugins/core'
 import { VsBrowseDbPlugin } from '../plugins/vs-browse-db'
+import { JsonFileSessionStorage } from './storage'
 
 // ---- Global plugin manager ----
 export const pluginManager = new PluginManager()
+
+// ---- Session storage (JSON files in userData/sessions/) ----
+export const sessionStorage = new JsonFileSessionStorage(app.getPath('userData'))
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -48,7 +52,7 @@ app.whenReady().then(() => {
   pluginManager.register(new VsBrowseDbPlugin())
 
   // Register IPC handlers
-  registerIpcHandlers(pluginManager)
+  registerIpcHandlers(pluginManager, sessionStorage)
 
   createWindow()
 

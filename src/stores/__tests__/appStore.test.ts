@@ -4,6 +4,9 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAppStore, defaultTabState, captureTabState } from '../appStore'
+import { serializeTab, serializeSession, buildSessionKey } from '../sessionSerializer'
+import type { SessionData } from '../../../electron/storage/types'
+import * as apiModule from '../../api'
 
 // Mock the API module — all async calls resolve immediately
 vi.mock('../../api', () => ({
@@ -47,6 +50,9 @@ vi.mock('../../api', () => ({
     return Promise.resolve([])
   }),
   getSourceSnippet: vi.fn().mockResolvedValue('10: void foo() {'),
+  sessionSave: vi.fn().mockResolvedValue(undefined),
+  sessionLoad: vi.fn().mockResolvedValue(null),
+  sessionDelete: vi.fn().mockResolvedValue(undefined),
 }))
 
 function getState() {
@@ -73,6 +79,7 @@ describe('Tab Management', () => {
       isSearching: false,
       tabs: [{ id: 'tab-init', label: 'New Tab', state: defaultTabState() }],
       activeTabId: 'tab-init',
+      tabRestoreQueue: new Map(),
     })
   })
 
@@ -566,5 +573,322 @@ describe('Pin Feature', () => {
       getState().switchTab(newTabId)
       getState().closeTab(newTabId)
     })
+  })
+})
+
+// ============================================================
+// Session Persistence Tests
+// ============================================================
+
+describe('Session Serializer', () => {
+  it('buildSessionKey produces consistent keys', () => {
+    const key = buildSessionKey('vs-browse-db', '/path/to/db')
+    expect(key).toBe('vs-browse-db:/path/to/db')
+  })
+
+  it('serializeTab extracts IDs from live state', () => {
+    const state: any = {
+      ...defaultTabState(),
+      selectedClass: { id: 'c1', name: 'Foo' },
+      selectedMember: { id: 'm1', name: 'bar' },
+      selectedMembers: new Set(['m1', 'm2']),
+      pinnedClasses: new Map([['c1', { id: 'c1', name: 'Foo' }]]),
+      pinnedMembers: new Map([
+        ['m1', { member: { id: 'm1', name: 'bar' }, classId: 'c1', className: 'Foo' }],
+      ]),
+      navBackStack: ['c0'],
+      navForwardStack: ['c2'],
+      leftPanelOpen: false,
+    }
+
+    const serialized = serializeTab('tab-1', 'Foo', state)
+
+    expect(serialized.id).toBe('tab-1')
+    expect(serialized.label).toBe('Foo')
+    expect(serialized.selectedClassId).toBe('c1')
+    expect(serialized.selectedMemberId).toBe('m1')
+    expect(serialized.selectedMemberIds).toEqual(['m1', 'm2'])
+    expect(serialized.pinnedClassIds).toEqual(['c1'])
+    expect(serialized.pinnedMemberEntries).toEqual([{ memberId: 'm1', classId: 'c1' }])
+    expect(serialized.navBackStack).toEqual(['c0'])
+    expect(serialized.navForwardStack).toEqual(['c2'])
+    expect(serialized.leftPanelOpen).toBe(false)
+  })
+
+  it('serializeTab handles empty state', () => {
+    const state = defaultTabState()
+    const serialized = serializeTab('tab-1', 'New Tab', state)
+
+    expect(serialized.selectedClassId).toBeNull()
+    expect(serialized.selectedMemberId).toBeNull()
+    expect(serialized.selectedMemberIds).toEqual([])
+    expect(serialized.pinnedClassIds).toEqual([])
+    expect(serialized.pinnedMemberEntries).toEqual([])
+  })
+
+  it('serializeSession produces complete SessionData', () => {
+    const activeState: any = {
+      ...defaultTabState(),
+      selectedClass: { id: 'c1', name: 'Foo' },
+    }
+    const tabs: any[] = [
+      { id: 'tab-1', label: 'Foo', state: activeState },
+      { id: 'tab-2', label: 'Bar', state: defaultTabState() },
+    ]
+
+    const result = serializeSession(
+      'vs-browse-db', '/test/db', 'tab-1', activeState, tabs
+    )
+
+    expect(result.version).toBe(1)
+    expect(result.pluginName).toBe('vs-browse-db')
+    expect(result.dataPath).toBe('/test/db')
+    expect(result.activeTabId).toBe('tab-1')
+    expect(result.tabs).toHaveLength(2)
+    expect(result.tabs[0].selectedClassId).toBe('c1')
+    expect(result.tabs[1].selectedClassId).toBeNull()
+    expect(result.savedAt).toBeTruthy()
+  })
+})
+
+describe('Session Restore', () => {
+  const mockApi = vi.mocked(apiModule)
+
+  beforeEach(() => {
+    const initial = defaultTabState()
+    useAppStore.setState({
+      ...initial,
+      isConnected: false,
+      dbPath: null,
+      classes: [],
+      classFilter: '',
+      isLoadingClasses: false,
+      searchQuery: '',
+      searchResults: [],
+      isSearching: false,
+      tabs: [{ id: 'tab-init', label: 'New Tab', state: defaultTabState() }],
+      activeTabId: 'tab-init',
+      tabRestoreQueue: new Map(),
+    })
+    vi.clearAllMocks()
+    // Reset default session load to null (no saved session)
+    mockApi.sessionLoad.mockResolvedValue(null)
+  })
+
+  it('openDatabase with no saved session creates fresh tab', async () => {
+    await getState().openDatabase('/test/db')
+
+    expect(getState().isConnected).toBe(true)
+    expect(getState().dbPath).toBe('/test/db')
+    expect(getState().tabs).toHaveLength(1)
+    expect(getState().tabRestoreQueue.size).toBe(0)
+  })
+
+  it('openDatabase with saved session restores tabs', async () => {
+    const savedSession: SessionData = {
+      version: 1,
+      pluginName: 'vs-browse-db',
+      dataPath: '/test/db',
+      savedAt: new Date().toISOString(),
+      activeTabId: 'tab-1',
+      tabs: [
+        {
+          id: 'tab-1',
+          label: 'ClassA',
+          selectedClassId: 'c1',
+          selectedMemberId: null,
+          selectedMemberIds: [],
+          pinnedClassIds: [],
+          pinnedMemberEntries: [],
+          navBackStack: [],
+          navForwardStack: [],
+          leftPanelOpen: true,
+        },
+        {
+          id: 'tab-2',
+          label: 'ClassB',
+          selectedClassId: 'c2',
+          selectedMemberId: null,
+          selectedMemberIds: [],
+          pinnedClassIds: [],
+          pinnedMemberEntries: [],
+          navBackStack: ['c1'],
+          navForwardStack: [],
+          leftPanelOpen: true,
+        },
+      ],
+    }
+
+    mockApi.sessionLoad.mockResolvedValue(savedSession)
+
+    await getState().openDatabase('/test/db')
+
+    expect(getState().isConnected).toBe(true)
+    expect(getState().tabs).toHaveLength(2)
+    // Active tab should be rehydrated
+    expect(getState().selectedClass?.id).toBe('c1')
+    expect(getState().selectedClass?.name).toBe('Class_c1')
+    // Background tab stays in restore queue
+    expect(getState().tabRestoreQueue.has('tab-2')).toBe(true)
+    // Active tab removed from queue
+    expect(getState().tabRestoreQueue.has('tab-1')).toBe(false)
+  })
+
+  it('restored tabs get rehydrated on switchTab', async () => {
+    const savedSession: SessionData = {
+      version: 1,
+      pluginName: 'vs-browse-db',
+      dataPath: '/test/db',
+      savedAt: new Date().toISOString(),
+      activeTabId: 'tab-1',
+      tabs: [
+        {
+          id: 'tab-1',
+          label: 'ClassA',
+          selectedClassId: 'c1',
+          selectedMemberId: null,
+          selectedMemberIds: [],
+          pinnedClassIds: [],
+          pinnedMemberEntries: [],
+          navBackStack: [],
+          navForwardStack: [],
+          leftPanelOpen: true,
+        },
+        {
+          id: 'tab-2',
+          label: 'ClassB',
+          selectedClassId: 'c2',
+          selectedMemberId: null,
+          selectedMemberIds: [],
+          pinnedClassIds: [],
+          pinnedMemberEntries: [],
+          navBackStack: ['c1'],
+          navForwardStack: [],
+          leftPanelOpen: false,
+        },
+      ],
+    }
+
+    mockApi.sessionLoad.mockResolvedValue(savedSession)
+    await getState().openDatabase('/test/db')
+
+    // tab-2 should be in restore queue
+    expect(getState().tabRestoreQueue.has('tab-2')).toBe(true)
+
+    // Switch to tab-2 — triggers lazy rehydration
+    getState().switchTab('tab-2')
+
+    // Wait for async rehydration
+    await vi.waitFor(() => {
+      expect(getState().selectedClass?.id).toBe('c2')
+    })
+
+    expect(getState().leftPanelOpen).toBe(false)
+    expect(getState().navBackStack).toEqual(['c1'])
+    expect(getState().tabRestoreQueue.has('tab-2')).toBe(false)
+  })
+
+  it('restores pinned classes and members', async () => {
+    // Set up getClassDetail to return members for class c1
+    mockApi.getClassDetail.mockImplementation((id: string) =>
+      Promise.resolve({
+        id,
+        name: `Class_${id}`,
+        kind: 1,
+        members: [
+          { id: `${id}-m1`, name: 'field1', qualifiedName: `${id}::field1`, kind: 'member', location: { file: 'test.cpp', line: 5, column: 0 } },
+          { id: `${id}-m2`, name: 'field2', qualifiedName: `${id}::field2`, kind: 'member', location: { file: 'test.cpp', line: 6, column: 0 } },
+        ],
+        bases: [],
+        derived: [],
+        location: { file: 'test.cpp', line: 10, column: 1 },
+      } as any)
+    )
+
+    const savedSession: SessionData = {
+      version: 1,
+      pluginName: 'vs-browse-db',
+      dataPath: '/test/db',
+      savedAt: new Date().toISOString(),
+      activeTabId: 'tab-1',
+      tabs: [{
+        id: 'tab-1',
+        label: 'ClassA',
+        selectedClassId: 'c1',
+        selectedMemberId: 'c1-m1',
+        selectedMemberIds: ['c1-m1'],
+        pinnedClassIds: ['c1', 'c2'],
+        pinnedMemberEntries: [{ memberId: 'c2-m1', classId: 'c2' }],
+        navBackStack: [],
+        navForwardStack: [],
+        leftPanelOpen: true,
+      }],
+    }
+
+    mockApi.sessionLoad.mockResolvedValue(savedSession)
+    await getState().openDatabase('/test/db')
+
+    // Selected class and member should be restored
+    expect(getState().selectedClass?.id).toBe('c1')
+    expect(getState().selectedMember?.id).toBe('c1-m1')
+    expect(getState().selectedMembers.has('c1-m1')).toBe(true)
+
+    // Pinned classes should be restored
+    expect(getState().pinnedClasses.size).toBe(2)
+    expect(getState().pinnedClasses.has('c1')).toBe(true)
+    expect(getState().pinnedClasses.has('c2')).toBe(true)
+
+    // Pinned members should be restored from parent class members
+    expect(getState().pinnedMembers.size).toBe(1)
+    expect(getState().pinnedMembers.has('c2-m1')).toBe(true)
+    expect(getState().pinnedMembers.get('c2-m1')!.classId).toBe('c2')
+  })
+
+  it('auto-save triggers on state change (debounced)', async () => {
+    // Open DB first (no saved session)
+    await getState().openDatabase('/test/db')
+
+    // Make a state change that would trigger save
+    await getState().selectClass('c1')
+
+    // Wait for debounce (2s) + some buffer
+    await new Promise(r => setTimeout(r, 2500))
+
+    expect(mockApi.sessionSave).toHaveBeenCalled()
+    const [key, data] = mockApi.sessionSave.mock.calls[mockApi.sessionSave.mock.calls.length - 1]
+    expect(key).toBe('vs-browse-db:/test/db')
+    expect(data.tabs).toBeDefined()
+    expect(data.version).toBe(1)
+  }, 10000)
+
+  it('nextTabId is advanced past restored IDs to avoid collision', async () => {
+    const savedSession: SessionData = {
+      version: 1,
+      pluginName: 'vs-browse-db',
+      dataPath: '/test/db',
+      savedAt: new Date().toISOString(),
+      activeTabId: 'tab-50',
+      tabs: [{
+        id: 'tab-50',
+        label: 'ClassA',
+        selectedClassId: 'c1',
+        selectedMemberId: null,
+        selectedMemberIds: [],
+        pinnedClassIds: [],
+        pinnedMemberEntries: [],
+        navBackStack: [],
+        navForwardStack: [],
+        leftPanelOpen: true,
+      }],
+    }
+
+    mockApi.sessionLoad.mockResolvedValue(savedSession)
+    await getState().openDatabase('/test/db')
+
+    // Create a new tab — its ID should not collide with tab-50
+    await getState().createTab()
+    const newId = getState().activeTabId!
+    const num = parseInt(newId.replace('tab-', ''), 10)
+    expect(num).toBeGreaterThan(50)
   })
 })

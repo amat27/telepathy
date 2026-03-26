@@ -138,4 +138,9 @@ export const IPC_CHANNELS = {
   // File operations
   OPEN_DB_DIALOG: 'dialog:open-db',
   OPEN_FOLDER_DIALOG: 'dialog:open-folder',
+
+  // Session persistence
+  SESSION_SAVE: 'session:save',
+  SESSION_LOAD: 'session:load',
+  SESSION_DELETE: 'session:delete',
 } as const

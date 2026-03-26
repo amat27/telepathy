@@ -28,6 +28,14 @@ const api = {
   // Dialogs
   openDbDialog: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_DB_DIALOG),
 
+  // Session persistence
+  sessionSave: (key: string, data: any) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SESSION_SAVE, key, data),
+  sessionLoad: (key: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SESSION_LOAD, key),
+  sessionDelete: (key: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SESSION_DELETE, key),
+
   // Zoom
   zoomIn: () => webFrame.setZoomLevel(webFrame.getZoomLevel() + 0.5),
   zoomOut: () => webFrame.setZoomLevel(webFrame.getZoomLevel() - 0.5),

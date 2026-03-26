@@ -6,8 +6,9 @@ import { ipcMain, dialog } from 'electron'
 import { IPC_CHANNELS } from '../../src/types/model'
 import type { PluginManager } from '../../plugins/core'
 import type { SymbolKind } from '../../src/types/model'
+import type { SessionStorage, SessionData } from '../storage'
 
-export function registerIpcHandlers(pm: PluginManager): void {
+export function registerIpcHandlers(pm: PluginManager, storage: SessionStorage): void {
   // ---- Plugin management ----
 
   ipcMain.handle(IPC_CHANNELS.PLUGIN_LIST, () => {
@@ -53,5 +54,19 @@ export function registerIpcHandlers(pm: PluginManager): void {
       properties: ['openFile'],
     })
     return result.canceled ? null : result.filePaths[0]
+  })
+
+  // ---- Session persistence ----
+
+  ipcMain.handle(IPC_CHANNELS.SESSION_SAVE, async (_event, key: string, data: SessionData) => {
+    await storage.save(key, data)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SESSION_LOAD, async (_event, key: string) => {
+    return storage.load(key)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SESSION_DELETE, async (_event, key: string) => {
+    await storage.delete(key)
   })
 }

@@ -51,3 +51,17 @@ export async function getSourceSnippet(
 export async function openDbDialog(): Promise<string | null> {
   return api().openDbDialog()
 }
+
+// ---- Session persistence ----
+
+export async function sessionSave(key: string, data: any): Promise<void> {
+  await api().sessionSave(key, data)
+}
+
+export async function sessionLoad(key: string): Promise<any | null> {
+  return api().sessionLoad(key)
+}
+
+export async function sessionDelete(key: string): Promise<void> {
+  await api().sessionDelete(key)
+}
