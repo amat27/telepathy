@@ -153,7 +153,6 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
         AND (SELECT COUNT(*) FROM code_items m WHERE m.parent_id = ci.id AND m.kind NOT IN (9, 17)) > 0
       GROUP BY ci.name, ci.kind
       ORDER BY ci.name COLLATE NOCASE
-      LIMIT 5000
     `)
 
     this.stmtGetClassesFiltered = db.prepare(`
@@ -165,7 +164,6 @@ export class VsBrowseDbPlugin implements CodeAnalysisPlugin {
         AND (SELECT COUNT(*) FROM code_items m WHERE m.parent_id = ci.id AND m.kind NOT IN (9, 17)) > 0
       GROUP BY ci.name, ci.kind
       ORDER BY ci.name COLLATE NOCASE
-      LIMIT 5000
     `)
 
     this.stmtGetClassDetail = db.prepare(`
