@@ -529,6 +529,8 @@ describe('Saved Views', () => {
         derived: [],
         location: { file: 'test.cpp', line: 1, column: 1 },
       } as any,
+      pinnedClasses: new Map([['pc1', { id: 'pc1', name: 'Pinned1' } as any]]),
+      pinnedMembers: new Map([['pm1', { member: { id: 'pm1', name: 'method' } as any, classId: 'pc1', className: 'Pinned1' }]]),
     })
 
     getState().saveCurrentView('class-view')
@@ -538,6 +540,9 @@ describe('Saved Views', () => {
     expect(sv.classView[0].classId).toBe('cls-1')
     expect(sv.classView[0].type).toBe('view')
     expect(sv.classView[0].viewType).toBe('class-view')
+    // Pins should be captured
+    expect(sv.classView[0].pinnedClassIds).toEqual(['pc1'])
+    expect(sv.classView[0].pinnedMemberEntries).toEqual([{ memberId: 'pm1', classId: 'pc1' }])
     // Should not affect callstack
     expect(sv.callstack).toHaveLength(0)
   })
@@ -554,6 +559,8 @@ describe('Saved Views', () => {
       graph: { nodes: [{ id: 'n1', name: 'func', qualifiedName: 'func', kind: 6 as any, location: { file: 'test.cpp', line: 1, column: 1 } }], edges: [] },
       tabs: [{ id: 'tab-init', label: 'My Callstack', state: defaultTabState() }],
       activeTabId: 'tab-init',
+      pinnedClasses: new Map([['pc1', { id: 'pc1', name: 'Pinned1' } as any]]),
+      pinnedMembers: new Map(),
     })
 
     getState().saveCurrentView('callstack')
@@ -561,6 +568,8 @@ describe('Saved Views', () => {
     expect(sv.callstack).toHaveLength(1)
     expect(sv.callstack[0].graph).toBeDefined()
     expect(sv.callstack[0].viewType).toBe('callstack')
+    expect(sv.callstack[0].pinnedClassIds).toEqual(['pc1'])
+    expect(sv.callstack[0].pinnedMemberEntries).toEqual([])
     expect(sv.classView).toHaveLength(0)
   })
 
@@ -722,6 +731,84 @@ describe('Saved Views', () => {
     await getState().openSavedView('sv-cs')
     expect(getState().graph).toEqual(graph)
     expect(getState().tabs.length).toBe(2) // original + new
+  })
+
+  it('opens a class-view saved view and restores pins', async () => {
+    const pinnedClass = {
+      id: 'pc1', name: 'PinnedClass', kind: 1,
+      members: [{ id: 'pm1', name: 'method', kind: 6, location: { file: 'test.cpp', line: 10, column: 1 } }],
+      bases: [], derived: [],
+      location: { file: 'test.cpp', line: 1, column: 1 },
+    }
+
+    setState({
+      savedViews: {
+        classView: [{
+          id: 'sv-pin', name: 'WithPins', type: 'view', viewType: 'class-view',
+          classId: 'cls-1',
+          pinnedClassIds: ['pc1'],
+          pinnedMemberEntries: [{ memberId: 'pm1', classId: 'pc1' }],
+        }],
+        callstack: [],
+      },
+    })
+
+    // Temporarily extend the mock to also return our pinned class
+    const mockGetClassDetail = vi.mocked(apiModule.getClassDetail)
+    const originalImpl = mockGetClassDetail.getMockImplementation()!
+    mockGetClassDetail.mockImplementation(async (id: string) => {
+      if (id === 'pc1') return pinnedClass as any
+      return originalImpl(id)
+    })
+
+    await getState().openSavedView('sv-pin')
+
+    expect(getState().pinnedClasses.size).toBe(1)
+    expect(getState().pinnedClasses.has('pc1')).toBe(true)
+    expect(getState().pinnedMembers.size).toBe(1)
+    expect(getState().pinnedMembers.has('pm1')).toBe(true)
+    expect(getState().pinnedMembers.get('pm1')!.className).toBe('PinnedClass')
+
+    // Restore original mock
+    mockGetClassDetail.mockImplementation(originalImpl)
+  })
+
+  it('opens a callstack saved view and restores pins', async () => {
+    const graph = { nodes: [{ id: 'n1', name: 'fn', qualifiedName: 'fn', kind: 6 as any, location: { file: 'test.cpp', line: 1, column: 1 } }], edges: [] }
+    const pinnedClass = {
+      id: 'pc2', name: 'AnotherPinned', kind: 1,
+      members: [], bases: [], derived: [],
+      location: { file: 'test.cpp', line: 1, column: 1 },
+    }
+
+    setState({
+      savedViews: {
+        classView: [],
+        callstack: [{
+          id: 'sv-cs-pin', name: 'TraceWithPins', type: 'view', viewType: 'callstack',
+          graph,
+          pinnedClassIds: ['pc2'],
+          pinnedMemberEntries: [],
+        }],
+      },
+    })
+
+    const mockGetClassDetail = vi.mocked(apiModule.getClassDetail)
+    const originalImpl = mockGetClassDetail.getMockImplementation()!
+    mockGetClassDetail.mockImplementation(async (id: string) => {
+      if (id === 'pc2') return pinnedClass as any
+      return originalImpl(id)
+    })
+
+    await getState().openSavedView('sv-cs-pin')
+
+    expect(getState().graph).toEqual(graph)
+    expect(getState().pinnedClasses.size).toBe(1)
+    expect(getState().pinnedClasses.has('pc2')).toBe(true)
+    expect(getState().pinnedMembers.size).toBe(0)
+
+    // Restore original mock
+    mockGetClassDetail.mockImplementation(originalImpl)
   })
 
   // ---- activeSidePanel ----

@@ -781,6 +781,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     const state = get()
     const viewId = `sv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
+    // Capture current pin state (shared by both view types)
+    const pinnedClassIds = [...state.pinnedClasses.keys()]
+    const pinnedMemberEntries = [...state.pinnedMembers.entries()].map(([, pm]) => ({
+      memberId: pm.member.id,
+      classId: pm.classId,
+    }))
+
     let node: SavedViewNode | null = null
 
     if (category === 'class-view') {
@@ -792,6 +799,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         type: 'view',
         viewType: 'class-view',
         classId: cls.id,
+        pinnedClassIds,
+        pinnedMemberEntries,
       }
     } else if (category === 'callstack') {
       const graph = state.graph
@@ -802,6 +811,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         type: 'view',
         viewType: 'callstack',
         graph,
+        pinnedClassIds,
+        pinnedMemberEntries,
       }
     }
 
@@ -847,6 +858,49 @@ export const useAppStore = create<AppState>((set, get) => ({
         activeTabId: newTabId,
       })
     }
+
+    // Restore pinned classes and members if saved
+    const hasPins = (node.pinnedClassIds?.length ?? 0) > 0
+      || (node.pinnedMemberEntries?.length ?? 0) > 0
+    if (!hasPins) return
+
+    const tabId = get().activeTabId
+    const pinnedClasses = new Map<string, CodeSymbol>()
+
+    // Fetch pinned class details in parallel
+    if (node.pinnedClassIds && node.pinnedClassIds.length > 0) {
+      const details = await Promise.all(
+        node.pinnedClassIds.map(id => api.getClassDetail(id))
+      )
+      if (get().activeTabId !== tabId) return // tab-switch guard
+      for (const detail of details) {
+        if (detail) pinnedClasses.set(detail.id, detail)
+      }
+    }
+
+    // Restore pinned members from their parent class's members[]
+    const pinnedMembers = new Map<string, PinnedMember>()
+    if (node.pinnedMemberEntries) {
+      const selectedClass = get().selectedClass
+      for (const entry of node.pinnedMemberEntries) {
+        const parentClass = pinnedClasses.get(entry.classId)
+          ?? (selectedClass?.id === entry.classId ? selectedClass : null)
+        if (!parentClass?.members) continue
+        const member = parentClass.members.find(m => m.id === entry.memberId)
+        if (member) {
+          pinnedMembers.set(member.id, {
+            member,
+            classId: entry.classId,
+            className: parentClass.name,
+          })
+        }
+      }
+    }
+
+    // Guard: tab may have switched during async fetch
+    if (get().activeTabId !== tabId) return
+
+    set({ pinnedClasses, pinnedMembers })
   },
 
   renameSavedView: (nodeId: string, newName: string) => {

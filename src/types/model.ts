@@ -82,6 +82,9 @@ export interface SavedViewNode {
   viewType?: SavedViewCategory         // which root this belongs to
   classId?: string                     // for class-view: class to open
   graph?: CodeGraph                    // for callstack: stored graph
+  // --- pin state (shared by both view types) ---
+  pinnedClassIds?: string[]            // IDs of pinned classes
+  pinnedMemberEntries?: { memberId: string; classId: string }[]  // pinned members
 }
 
 /** Top-level saved views tree (two fixed roots) */
