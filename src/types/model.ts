@@ -125,6 +125,7 @@ export interface TabState {
   leftPanelOpen: boolean              // per-tab left panel visibility
   pinnedClasses: Map<string, CodeSymbol>     // classId → class detail (survives navigation)
   pinnedMembers: Map<string, PinnedMember>   // memberId → pinned member info (survives navigation)
+  savedViewId: string | null                 // linked saved view id (null = not from a saved view)
 }
 
 /** Tab metadata + stored state for background tabs */

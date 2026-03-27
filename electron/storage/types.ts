@@ -17,6 +17,7 @@ export interface SerializedTab {
   navBackStack: string[]
   navForwardStack: string[]
   leftPanelOpen: boolean
+  savedViewId: string | null           // linked saved view id
 }
 
 /** Full session snapshot for a data source */

@@ -14,7 +14,7 @@ import './styles/global.css'
 import './App.css'
 
 export function App() {
-  const { navBackStack, navForwardStack, goBack, goForward, createTab, closeTab, activeTabId } = useAppStore()
+  const { navBackStack, navForwardStack, goBack, goForward, createTab, closeTab, activeTabId, saveOrUpdateView } = useAppStore()
   const [showCallstack, setShowCallstack] = useState(false)
   const { themeId, setThemeId } = useTheme()
 
@@ -39,6 +39,11 @@ export function App() {
         e.preventDefault()
         if (activeTabId) closeTab(activeTabId)
       }
+      // Ctrl+S for save/update view
+      else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 's') {
+        e.preventDefault()
+        saveOrUpdateView()
+      }
       // Ctrl+Shift+V for callstack dialog
       else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'V') {
         e.preventDefault()
@@ -62,7 +67,7 @@ export function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [goBack, goForward, createTab, closeTab, activeTabId])
+  }, [goBack, goForward, createTab, closeTab, activeTabId, saveOrUpdateView])
 
   return (
     <div className="app">

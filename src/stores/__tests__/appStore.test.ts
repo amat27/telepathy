@@ -3,7 +3,7 @@
 // ============================================================
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { useAppStore, defaultTabState, captureTabState } from '../appStore'
+import { useAppStore, defaultTabState, captureTabState, isTabDirty } from '../appStore'
 import { serializeTab, serializeSession, buildSessionKey } from '../sessionSerializer'
 import type { SessionData } from '../../../electron/storage/types'
 import * as apiModule from '../../api'
@@ -847,6 +847,234 @@ describe('Saved Views', () => {
   })
 })
 
+// ============================================================
+// Tab-SavedView Linkage Tests
+// ============================================================
+
+describe('Tab-SavedView Linkage', () => {
+  beforeEach(() => {
+    const initial = defaultTabState()
+    useAppStore.setState({
+      ...initial,
+      isConnected: true,
+      dbPath: '/test/db',
+      classes: [],
+      classFilter: '',
+      isLoadingClasses: false,
+      searchQuery: '',
+      searchResults: [],
+      isSearching: false,
+      tabs: [{ id: 'tab-init', label: 'New Tab', state: defaultTabState() }],
+      activeTabId: 'tab-init',
+      tabRestoreQueue: new Map(),
+      savedViews: { classView: [], callstack: [] },
+      activeSidePanel: null,
+    })
+  })
+
+  it('saveCurrentView links the tab to the new saved view', () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1', name: 'MyClass', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+    })
+
+    getState().saveCurrentView('class-view')
+    const sv = getState().savedViews
+    expect(sv.classView).toHaveLength(1)
+    // Tab should now be linked
+    expect(getState().savedViewId).toBe(sv.classView[0].id)
+  })
+
+  it('isTabDirty returns false when tab matches saved view', () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1', name: 'MyClass', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+      pinnedClasses: new Map(),
+      pinnedMembers: new Map(),
+    })
+
+    getState().saveCurrentView('class-view')
+    expect(isTabDirty(getState())).toBe(false)
+  })
+
+  it('isTabDirty returns true when pins change', () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1', name: 'MyClass', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+      pinnedClasses: new Map(),
+      pinnedMembers: new Map(),
+    })
+
+    getState().saveCurrentView('class-view')
+    expect(isTabDirty(getState())).toBe(false)
+
+    // Add a pinned class — should become dirty
+    setState({
+      pinnedClasses: new Map([['pc1', { id: 'pc1', name: 'Pinned' } as any]]),
+    })
+    expect(isTabDirty(getState())).toBe(true)
+  })
+
+  it('isTabDirty returns true when selected class changes', () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1', name: 'MyClass', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+    })
+
+    getState().saveCurrentView('class-view')
+    expect(isTabDirty(getState())).toBe(false)
+
+    // Navigate to different class
+    setState({
+      selectedClass: {
+        id: 'cls-2', name: 'Other', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+    })
+    expect(isTabDirty(getState())).toBe(true)
+  })
+
+  it('isTabDirty returns false when no savedViewId', () => {
+    setState({ savedViewId: null })
+    expect(isTabDirty(getState())).toBe(false)
+  })
+
+  it('updateSavedView updates the linked view with current state', () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1', name: 'MyClass', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+      pinnedClasses: new Map(),
+      pinnedMembers: new Map(),
+    })
+
+    getState().saveCurrentView('class-view')
+    const viewId = getState().savedViewId!
+
+    // Modify state (add a pin)
+    setState({
+      pinnedClasses: new Map([['pc1', { id: 'pc1', name: 'Pinned' } as any]]),
+    })
+    expect(isTabDirty(getState())).toBe(true)
+
+    // Update the saved view
+    getState().updateSavedView(viewId)
+
+    // Should no longer be dirty
+    expect(isTabDirty(getState())).toBe(false)
+    // Saved view should have the new pin
+    const node = getState().savedViews.classView[0]
+    expect(node.pinnedClassIds).toEqual(['pc1'])
+  })
+
+  it('saveOrUpdateView updates existing linked view', () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1', name: 'MyClass', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+      pinnedClasses: new Map(),
+      pinnedMembers: new Map(),
+    })
+
+    getState().saveCurrentView('class-view')
+    const viewId = getState().savedViewId!
+    expect(getState().savedViews.classView).toHaveLength(1)
+
+    // Modify and save again via saveOrUpdateView
+    setState({
+      pinnedClasses: new Map([['pc1', { id: 'pc1', name: 'Pinned' } as any]]),
+    })
+    getState().saveOrUpdateView()
+
+    // Should still be only 1 saved view (updated, not a new one)
+    expect(getState().savedViews.classView).toHaveLength(1)
+    expect(getState().savedViews.classView[0].id).toBe(viewId)
+    expect(getState().savedViews.classView[0].pinnedClassIds).toEqual(['pc1'])
+  })
+
+  it('saveOrUpdateView creates new view when not linked', () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1', name: 'MyClass', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+      savedViewId: null,
+    })
+
+    getState().saveOrUpdateView()
+    expect(getState().savedViews.classView).toHaveLength(1)
+    expect(getState().savedViewId).toBe(getState().savedViews.classView[0].id)
+  })
+
+  it('openSavedView jumps to existing linked tab instead of creating new', async () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1', name: 'MyClass', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+    })
+
+    getState().saveCurrentView('class-view')
+    const viewId = getState().savedViewId!
+    const linkedTabId = getState().activeTabId!
+
+    // Create another tab
+    await getState().createTab()
+    const newTabId = getState().activeTabId!
+    expect(newTabId).not.toBe(linkedTabId)
+
+    // Double-click saved view — should switch to the linked tab, not create a new one
+    const tabCountBefore = getState().tabs.length
+    await getState().openSavedView(viewId)
+    expect(getState().activeTabId).toBe(linkedTabId)
+    expect(getState().tabs.length).toBe(tabCountBefore) // no new tab
+  })
+
+  it('openSavedView creates new tab when no linked tab exists', async () => {
+    setState({
+      savedViews: {
+        classView: [{ id: 'sv-orphan', name: 'Orphan', type: 'view', viewType: 'class-view', classId: 'cls-1' }],
+        callstack: [],
+      },
+    })
+
+    const tabCountBefore = getState().tabs.length
+    await getState().openSavedView('sv-orphan')
+    expect(getState().tabs.length).toBe(tabCountBefore + 1)
+    // New tab should be linked to the saved view
+    expect(getState().savedViewId).toBe('sv-orphan')
+  })
+
+  it('savedViewId is preserved in session serialization', () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1', name: 'MyClass', kind: 1, members: [], bases: [], derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+    })
+
+    getState().saveCurrentView('class-view')
+    const viewId = getState().savedViewId
+
+    const state = getState()
+    const session = serializeSession(
+      'vs-browse-db', '/test/db', state.activeTabId!, captureTabState(state), state.tabs,
+      state.tabRestoreQueue, state.savedViews,
+    )
+    expect(session.tabs[0].savedViewId).toBe(viewId)
+  })
+})
+
     it('unpins a previously pinned member', () => {
       const member = { id: 'm1', name: 'doStuff', qualifiedName: 'c1::doStuff', kind: 'member_function' as any, location: { file: 'test.cpp', line: 5, column: 0 } }
 
@@ -1061,6 +1289,7 @@ describe('Session Restore', () => {
           navBackStack: [],
           navForwardStack: [],
           leftPanelOpen: true,
+          savedViewId: null,
         },
         {
           id: 'tab-2',
@@ -1073,6 +1302,7 @@ describe('Session Restore', () => {
           navBackStack: ['c1'],
           navForwardStack: [],
           leftPanelOpen: true,
+          savedViewId: null,
         },
       ],
     }
@@ -1111,6 +1341,7 @@ describe('Session Restore', () => {
           navBackStack: [],
           navForwardStack: [],
           leftPanelOpen: true,
+          savedViewId: null,
         },
         {
           id: 'tab-2',
@@ -1123,6 +1354,7 @@ describe('Session Restore', () => {
           navBackStack: ['c1'],
           navForwardStack: [],
           leftPanelOpen: false,
+          savedViewId: null,
         },
       ],
     }
@@ -1180,6 +1412,7 @@ describe('Session Restore', () => {
         navBackStack: [],
         navForwardStack: [],
         leftPanelOpen: true,
+        savedViewId: null,
       }],
     }
 
@@ -1237,6 +1470,7 @@ describe('Session Restore', () => {
         navBackStack: [],
         navForwardStack: [],
         leftPanelOpen: true,
+        savedViewId: null,
       }],
     }
 

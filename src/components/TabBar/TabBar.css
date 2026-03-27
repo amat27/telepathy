@@ -138,6 +138,17 @@
   opacity: 1;
 }
 
+/* Linked save button: always visible with accent color */
+.tab-save.tab-save-linked {
+  opacity: 0.7;
+  color: var(--color-class);
+}
+
+.tab-item:hover .tab-save.tab-save-linked,
+.tab-item.active .tab-save.tab-save-linked {
+  opacity: 1;
+}
+
 .tab-save:hover {
   background: var(--bg-active);
   color: var(--color-class);

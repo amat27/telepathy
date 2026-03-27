@@ -27,6 +27,7 @@ export function serializeTab(tabId: string, label: string, state: TabState): Ser
     navBackStack: [...state.navBackStack],
     navForwardStack: [...state.navForwardStack],
     leftPanelOpen: state.leftPanelOpen,
+    savedViewId: state.savedViewId,
   }
 }
 

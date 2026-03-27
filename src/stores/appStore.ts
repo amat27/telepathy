@@ -36,6 +36,7 @@ export function defaultTabState(): TabState {
     leftPanelOpen: true,
     pinnedClasses: new Map<string, CodeSymbol>(),
     pinnedMembers: new Map<string, PinnedMember>(),
+    savedViewId: null,
   }
 }
 
@@ -57,6 +58,7 @@ export function captureTabState(state: AppState): TabState {
     leftPanelOpen: state.leftPanelOpen,
     pinnedClasses: state.pinnedClasses,
     pinnedMembers: state.pinnedMembers,
+    savedViewId: state.savedViewId,
   }
 }
 
@@ -88,6 +90,7 @@ interface AppState {
   leftPanelOpen: boolean
   pinnedClasses: Map<string, CodeSymbol>
   pinnedMembers: Map<string, PinnedMember>
+  savedViewId: string | null
 
   // --- Tab management ---
   tabs: TabInfo[]
@@ -134,6 +137,8 @@ interface AppState {
   // Actions - Saved views
   setActiveSidePanel: (panelId: string | null) => void
   saveCurrentView: (category: SavedViewCategory, name?: string) => void
+  updateSavedView: (viewId: string) => void
+  saveOrUpdateView: () => void
   openSavedView: (nodeId: string) => Promise<void>
   renameSavedView: (nodeId: string, newName: string) => void
   deleteSavedView: (nodeId: string) => void
@@ -176,6 +181,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   leftPanelOpen: true,
   pinnedClasses: new Map<string, CodeSymbol>(),
   pinnedMembers: new Map<string, PinnedMember>(),
+  savedViewId: null,
 
   // Tabs
   tabs: [initialTab],
@@ -824,12 +830,89 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else {
       set({ savedViews: { ...sv, callstack: [...sv.callstack, node] } })
     }
+
+    // Link the active tab to this saved view
+    set({ savedViewId: viewId })
+  },
+
+  updateSavedView: (viewId: string) => {
+    const state = get()
+    const sv = state.savedViews
+    const node = findNodeInTree(viewId, [...sv.classView, ...sv.callstack])
+    if (!node || node.type !== 'view') return
+
+    // Build updated pin state
+    const pinnedClassIds = [...state.pinnedClasses.keys()]
+    const pinnedMemberEntries = [...state.pinnedMembers.entries()].map(([, pm]) => ({
+      memberId: pm.member.id,
+      classId: pm.classId,
+    }))
+
+    const updater = (n: SavedViewNode): SavedViewNode => {
+      if (n.viewType === 'class-view') {
+        return {
+          ...n,
+          classId: state.selectedClass?.id ?? n.classId,
+          pinnedClassIds,
+          pinnedMemberEntries,
+        }
+      } else if (n.viewType === 'callstack') {
+        return {
+          ...n,
+          graph: state.graph ?? n.graph,
+          pinnedClassIds,
+          pinnedMemberEntries,
+        }
+      }
+      return n
+    }
+
+    set({
+      savedViews: {
+        classView: updateNodeInList(sv.classView, viewId, updater),
+        callstack: updateNodeInList(sv.callstack, viewId, updater),
+      },
+    })
+  },
+
+  saveOrUpdateView: () => {
+    const state = get()
+    // If tab is linked to a saved view, update it
+    if (state.savedViewId) {
+      const sv = state.savedViews
+      const node = findNodeInTree(state.savedViewId, [...sv.classView, ...sv.callstack])
+      if (node) {
+        get().updateSavedView(state.savedViewId)
+        return
+      }
+    }
+    // Otherwise create a new saved view
+    const category: SavedViewCategory | null = state.selectedClass ? 'class-view' : state.graph ? 'callstack' : null
+    if (category) {
+      get().saveCurrentView(category)
+    }
   },
 
   openSavedView: async (nodeId: string) => {
     const sv = get().savedViews
     const node = findNodeInTree(nodeId, [...sv.classView, ...sv.callstack])
     if (!node || node.type !== 'view') return
+
+    // Check if any open tab is already linked to this saved view
+    const existingTab = get().tabs.find(t => {
+      if (t.id === get().activeTabId) {
+        // Active tab: check flat store
+        return get().savedViewId === nodeId
+      }
+      // Background tab: check stored snapshot
+      return t.state.savedViewId === nodeId
+    })
+
+    if (existingTab) {
+      // Jump to the existing linked tab
+      get().switchTab(existingTab.id)
+      return
+    }
 
     if (node.viewType === 'class-view' && node.classId) {
       await get().createTab(node.classId)
@@ -862,7 +945,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Restore pinned classes and members if saved
     const hasPins = (node.pinnedClassIds?.length ?? 0) > 0
       || (node.pinnedMemberEntries?.length ?? 0) > 0
-    if (!hasPins) return
+
+    if (!hasPins) {
+      // No pins to restore, just set the linkage
+      set({ savedViewId: nodeId })
+      return
+    }
 
     const tabId = get().activeTabId
     const pinnedClasses = new Map<string, CodeSymbol>()
@@ -900,7 +988,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Guard: tab may have switched during async fetch
     if (get().activeTabId !== tabId) return
 
-    set({ pinnedClasses, pinnedMembers })
+    set({ pinnedClasses, pinnedMembers, savedViewId: nodeId })
   },
 
   renameSavedView: (nodeId: string, newName: string) => {
@@ -1069,6 +1157,42 @@ if (typeof window !== 'undefined') {
 }
 
 // ============================================================
+// Dirty detection — is the tab state different from linked saved view?
+// ============================================================
+
+export function isTabDirty(state: AppState): boolean {
+  if (!state.savedViewId) return false
+  const sv = state.savedViews
+  const node = findNodeInTree(state.savedViewId, [...sv.classView, ...sv.callstack])
+  if (!node || node.type !== 'view') return false
+
+  // Compare class ID for class-view
+  if (node.viewType === 'class-view') {
+    if (state.selectedClass?.id !== node.classId) return true
+  }
+  // Compare graph reference for callstack
+  if (node.viewType === 'callstack') {
+    if (state.graph !== node.graph) return true
+  }
+  // Compare pinned classes
+  const savedPinIds = node.pinnedClassIds ?? []
+  const currentPinIds = [...state.pinnedClasses.keys()]
+  if (savedPinIds.length !== currentPinIds.length
+    || !savedPinIds.every(id => state.pinnedClasses.has(id))) return true
+  // Compare pinned members
+  const savedMembers = node.pinnedMemberEntries ?? []
+  const currentMembers = [...state.pinnedMembers.values()].map(pm => ({
+    memberId: pm.member.id,
+    classId: pm.classId,
+  }))
+  if (savedMembers.length !== currentMembers.length) return true
+  const savedSet = new Set(savedMembers.map(e => `${e.memberId}:${e.classId}`))
+  if (!currentMembers.every(e => savedSet.has(`${e.memberId}:${e.classId}`))) return true
+
+  return false
+}
+
+// ============================================================
 // Session restore — rehydrate a tab from saved IDs
 // ============================================================
 
@@ -1154,6 +1278,7 @@ async function rehydrateActiveTab(tabId: string): Promise<void> {
       navBackStack: [...serialized.navBackStack],
       navForwardStack: [...serialized.navForwardStack],
       leftPanelOpen: serialized.leftPanelOpen,
+      savedViewId: serialized.savedViewId ?? null,
       isLoadingDetail: false,
       isLoadingGraph: false,
       tabRestoreQueue: nextQueue,
