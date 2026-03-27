@@ -8,7 +8,7 @@ import { promises as fs } from 'fs'
 import { join } from 'path'
 import { createHash } from 'crypto'
 import type { SessionStorage, SessionData } from './types'
-import { migrateSession, SessionMigrationError } from './sessionMigrations'
+import { migrateSession, SessionMigrationError, CURRENT_SESSION_VERSION } from './sessionMigrations'
 
 /** Hash a session key to a safe filename */
 function keyToFilename(key: string): string {
@@ -58,13 +58,13 @@ export class JsonFileSessionStorage implements SessionStorage {
       )
     }
 
-    try {
-      return migrateSession(raw)
-    } catch (err) {
-      // Migration failed — backup original file before re-throwing
-      await this.backupFile(filePath, `v${raw?.version ?? 'unknown'}`)
-      throw err
+    // Backup BEFORE migration so the original is always preserved
+    const version = typeof raw?.version === 'number' ? raw.version : 1
+    if (version !== CURRENT_SESSION_VERSION) {
+      await this.backupFile(filePath, `v${version}`)
     }
+
+    return migrateSession(raw)
   }
 
   async delete(key: string): Promise<void> {
