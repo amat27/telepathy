@@ -5,6 +5,7 @@
 
 import type { TabState, TabInfo, PinnedMember, SavedViewTree } from '../types/model'
 import type { SerializedTab, SessionData } from '../../electron/storage/types'
+import { CURRENT_SESSION_VERSION } from '../../electron/storage/sessionMigrations'
 
 /** Build a session key from plugin + data path */
 export function buildSessionKey(pluginName: string, dataPath: string): string {
@@ -56,7 +57,7 @@ export function serializeSession(
   })
 
   return {
-    version: 1,
+    version: CURRENT_SESSION_VERSION,
     pluginName,
     dataPath,
     savedAt: new Date().toISOString(),

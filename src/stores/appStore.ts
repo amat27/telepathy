@@ -98,6 +98,7 @@ interface AppState {
 
   // --- Session restore (transient) ---
   tabRestoreQueue: Map<string, PendingTabRestore>
+  sessionError: string | null   // migration/corruption error shown to user
 
   // Search
   searchQuery: string
@@ -113,6 +114,7 @@ interface AppState {
   loadClasses: (filter?: string) => Promise<void>
   search: (query: string) => Promise<void>
   setClassFilter: (filter: string) => void
+  dismissSessionError: () => void
 
   // Actions - Tab management
   createTab: (classId?: string) => Promise<void>
@@ -189,6 +191,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Session restore
   tabRestoreQueue: new Map<string, PendingTabRestore>(),
+  sessionError: null,
 
   searchQuery: '',
   searchResults: [],
@@ -200,6 +203,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // ---- Global actions ----
 
+  dismissSessionError: () => set({ sessionError: null }),
+
   openDatabase: async (dbPath: string) => {
     try {
       await api.initPlugin('vs-browse-db', dbPath)
@@ -209,7 +214,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       let session: SessionData | null = null
       try {
         session = await api.sessionLoad(sessionKey)
-      } catch { /* ignore load failure */ }
+      } catch (loadErr: any) {
+        // Migration or corruption error — session was backed up by storage layer
+        console.error('[Telepathy] Session load failed:', loadErr)
+        set({
+          sessionError: loadErr?.message
+            ?? 'Failed to load session. The original file has been backed up.',
+        })
+        // Continue with fresh start — don't re-throw
+      }
 
       if (session && session.tabs.length > 0) {
         // ---- Restore from saved session ----

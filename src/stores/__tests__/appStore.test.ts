@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAppStore, defaultTabState, captureTabState, isTabDirty } from '../appStore'
 import { serializeTab, serializeSession, buildSessionKey } from '../sessionSerializer'
+import { CURRENT_SESSION_VERSION } from '../../../electron/storage/sessionMigrations'
 import type { SessionData } from '../../../electron/storage/types'
 import * as apiModule from '../../api'
 
@@ -1260,7 +1261,7 @@ describe('Session Serializer', () => {
       'vs-browse-db', '/test/db', 'tab-1', activeState, tabs
     )
 
-    expect(result.version).toBe(1)
+    expect(result.version).toBe(CURRENT_SESSION_VERSION)
     expect(result.pluginName).toBe('vs-browse-db')
     expect(result.dataPath).toBe('/test/db')
     expect(result.activeTabId).toBe('tab-1')
@@ -1306,7 +1307,7 @@ describe('Session Restore', () => {
 
   it('openDatabase with saved session restores tabs', async () => {
     const savedSession: SessionData = {
-      version: 1,
+      version: CURRENT_SESSION_VERSION,
       pluginName: 'vs-browse-db',
       dataPath: '/test/db',
       savedAt: new Date().toISOString(),
@@ -1358,7 +1359,7 @@ describe('Session Restore', () => {
 
   it('restored tabs get rehydrated on switchTab', async () => {
     const savedSession: SessionData = {
-      version: 1,
+      version: CURRENT_SESSION_VERSION,
       pluginName: 'vs-browse-db',
       dataPath: '/test/db',
       savedAt: new Date().toISOString(),
@@ -1430,7 +1431,7 @@ describe('Session Restore', () => {
     )
 
     const savedSession: SessionData = {
-      version: 1,
+      version: CURRENT_SESSION_VERSION,
       pluginName: 'vs-browse-db',
       dataPath: '/test/db',
       savedAt: new Date().toISOString(),
@@ -1483,12 +1484,12 @@ describe('Session Restore', () => {
     const [key, data] = mockApi.sessionSave.mock.calls[mockApi.sessionSave.mock.calls.length - 1]
     expect(key).toBe('vs-browse-db:/test/db')
     expect(data.tabs).toBeDefined()
-    expect(data.version).toBe(1)
+    expect(data.version).toBe(CURRENT_SESSION_VERSION)
   }, 10000)
 
   it('nextTabId is advanced past restored IDs to avoid collision', async () => {
     const savedSession: SessionData = {
-      version: 1,
+      version: CURRENT_SESSION_VERSION,
       pluginName: 'vs-browse-db',
       dataPath: '/test/db',
       savedAt: new Date().toISOString(),

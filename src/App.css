@@ -76,3 +76,31 @@
 .app-header .search-bar {
   -webkit-app-region: no-drag;
 }
+
+/* ---- Session error banner ---- */
+.session-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--error-bg, #3c1618);
+  border-bottom: 1px solid var(--error-border, #6e2b2e);
+  color: var(--error-text, #f5a0a0);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.session-error-text {
+  flex: 1;
+}
+.session-error-dismiss {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.7;
+}
+.session-error-dismiss:hover {
+  opacity: 1;
+}

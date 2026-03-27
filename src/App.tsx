@@ -14,7 +14,7 @@ import './styles/global.css'
 import './App.css'
 
 export function App() {
-  const { navBackStack, navForwardStack, goBack, goForward, createTab, closeTab, activeTabId, saveOrUpdateView } = useAppStore()
+  const { navBackStack, navForwardStack, goBack, goForward, createTab, closeTab, activeTabId, saveOrUpdateView, sessionError, dismissSessionError } = useAppStore()
   const [showCallstack, setShowCallstack] = useState(false)
   const { themeId, setThemeId } = useTheme()
 
@@ -106,6 +106,14 @@ export function App() {
         <ThemeMenu currentThemeId={themeId} onSelect={setThemeId} />
       </header>
       <TabBar />
+      {sessionError && (
+        <div className="session-error-banner">
+          <span className="session-error-text">{sessionError}</span>
+          <button className="session-error-dismiss" onClick={dismissSessionError} title="Dismiss">
+            &times;
+          </button>
+        </div>
+      )}
       <MainLayout />
       <CallstackDialog open={showCallstack} onClose={() => setShowCallstack(false)} />
     </div>

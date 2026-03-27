@@ -22,7 +22,7 @@ export interface SerializedTab {
 
 /** Full session snapshot for a data source */
 export interface SessionData {
-  version: 1
+  version: number
   pluginName: string
   dataPath: string
   savedAt: string // ISO 8601
