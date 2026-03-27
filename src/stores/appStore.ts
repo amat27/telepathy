@@ -992,13 +992,29 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   renameSavedView: (nodeId: string, newName: string) => {
-    const sv = get().savedViews
-    set({
+    const state = get()
+    const sv = state.savedViews
+
+    // Sync linked tab label: active tab (flat store) or background tab (snapshot)
+    const updates: Partial<AppState> = {
       savedViews: {
         classView: updateNodeInList(sv.classView, nodeId, n => ({ ...n, name: newName })),
         callstack: updateNodeInList(sv.callstack, nodeId, n => ({ ...n, name: newName })),
       },
-    })
+    }
+    if (state.savedViewId === nodeId) {
+      updates.tabs = state.tabs.map(t =>
+        t.id === state.activeTabId ? { ...t, label: newName } : t
+      )
+    } else {
+      const linked = state.tabs.find(t => t.state.savedViewId === nodeId)
+      if (linked) {
+        updates.tabs = state.tabs.map(t =>
+          t.id === linked.id ? { ...t, label: newName } : t
+        )
+      }
+    }
+    set(updates)
   },
 
   deleteSavedView: (nodeId: string) => {

@@ -603,6 +603,40 @@ describe('Saved Views', () => {
     expect(folder.children![0].name).toBe('Renamed Deep')
   })
 
+  it('renames linked active tab when its saved view is renamed', () => {
+    setState({
+      savedViewId: 'sv-1',
+      activeTabId: 'tab-1',
+      tabs: [{ id: 'tab-1', label: 'Old Name', state: { savedViewId: 'sv-1' } as any }],
+      savedViews: {
+        classView: [{ id: 'sv-1', name: 'Old Name', type: 'view', viewType: 'class-view', classId: 'c1' }],
+        callstack: [],
+      },
+    })
+
+    getState().renameSavedView('sv-1', 'Shiny New Name')
+    expect(getState().tabs.find(t => t.id === 'tab-1')!.label).toBe('Shiny New Name')
+  })
+
+  it('renames linked background tab when its saved view is renamed', () => {
+    setState({
+      savedViewId: null,
+      activeTabId: 'tab-active',
+      tabs: [
+        { id: 'tab-active', label: 'Active', state: { savedViewId: null } as any },
+        { id: 'tab-bg', label: 'Old BG Name', state: { savedViewId: 'sv-bg' } as any },
+      ],
+      savedViews: {
+        classView: [{ id: 'sv-bg', name: 'Old BG Name', type: 'view', viewType: 'class-view', classId: 'c2' }],
+        callstack: [],
+      },
+    })
+
+    getState().renameSavedView('sv-bg', 'Renamed BG')
+    expect(getState().tabs.find(t => t.id === 'tab-bg')!.label).toBe('Renamed BG')
+    expect(getState().tabs.find(t => t.id === 'tab-active')!.label).toBe('Active')
+  })
+
   // ---- deleteSavedView ----
 
   it('deletes a saved view from the tree', () => {
