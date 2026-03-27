@@ -112,6 +112,37 @@
   color: var(--text-primary);
 }
 
+/* ---- Save Button ---- */
+
+.tab-save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s;
+}
+
+.tab-item:hover .tab-save,
+.tab-item.active .tab-save {
+  opacity: 1;
+}
+
+.tab-save:hover {
+  background: var(--bg-active);
+  color: var(--color-class);
+}
+
 /* ---- New Tab Button ---- */
 
 .tab-new {

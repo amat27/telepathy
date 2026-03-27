@@ -15,13 +15,15 @@
   min-width: 24px;
   background: var(--bg-secondary);
   border: none;
-  border-right: 1px solid var(--border-color);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   transition: background 0.15s;
+}
+.panel-expand-left {
+  border-right: 1px solid var(--border-color);
 }
 .panel-expand-strip:hover {
   background: var(--bg-hover);

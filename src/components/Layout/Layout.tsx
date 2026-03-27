@@ -1,6 +1,7 @@
 // ============================================================
-// Main 3-Panel Layout (Sourcetrail-style)
-// Left: Symbol Tree | Center: Graph View | Right: Code Preview
+// Main Layout
+// Left: Symbol Tree | Center: Graph View | Code Preview
+// Right: VS-style Side Panel (outside Allotment, self-managed width)
 // ============================================================
 
 import { Allotment } from 'allotment'
@@ -8,6 +9,7 @@ import 'allotment/dist/style.css'
 import { SymbolTree } from '../SymbolTree/SymbolTree'
 import { GraphView } from '../GraphView/GraphView'
 import { CodePreview } from '../CodePreview/CodePreview'
+import { SidePanel } from '../SidePanel/SidePanel'
 import { useAppStore } from '../../stores/appStore'
 import './Layout.css'
 
@@ -20,7 +22,7 @@ export function MainLayout() {
       {/* Expand strip shown when left panel is collapsed */}
       {!leftPanelOpen && (
         <button
-          className="panel-expand-strip"
+          className="panel-expand-strip panel-expand-left"
           onClick={() => setLeftPanelOpen(true)}
           title="Show symbol tree"
         >
@@ -28,6 +30,7 @@ export function MainLayout() {
         </button>
       )}
 
+      {/* Main 3-pane area */}
       <Allotment
         defaultSizes={[250, 600, 350]}
         separator
@@ -50,13 +53,16 @@ export function MainLayout() {
           </div>
         </Allotment.Pane>
 
-        {/* Right Panel - Code Preview */}
+        {/* Code Preview Panel */}
         <Allotment.Pane minSize={200} preferredSize={350}>
           <div className="panel">
             <CodePreview />
           </div>
         </Allotment.Pane>
       </Allotment>
+
+      {/* VS-style Side Panel (always visible — tab strip + optional content) */}
+      <SidePanel />
     </div>
   )
 }

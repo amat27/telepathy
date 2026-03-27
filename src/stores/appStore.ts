@@ -4,7 +4,7 @@
 // ============================================================
 
 import { create } from 'zustand'
-import type { CodeSymbol, CodeGraph, SymbolSummary, SymbolEdge, TabState, TabInfo, PinnedMember } from '../types/model'
+import type { CodeSymbol, CodeGraph, SymbolSummary, SymbolEdge, TabState, TabInfo, PinnedMember, SavedViewNode, SavedViewTree, SavedViewCategory } from '../types/model'
 import { EdgeKind, SymbolKind } from '../types/model'
 import * as api from '../api'
 import { parseCallstack, resolveCallstack } from '../utils/callstackParser'
@@ -101,6 +101,10 @@ interface AppState {
   searchResults: SymbolSummary[]
   isSearching: boolean
 
+  // --- Saved Views (right panel, global) ---
+  savedViews: SavedViewTree
+  activeSidePanel: string | null
+
   // Actions - Global
   openDatabase: (dbPath: string) => Promise<void>
   loadClasses: (filter?: string) => Promise<void>
@@ -126,6 +130,15 @@ interface AppState {
   goBack: () => Promise<void>
   goForward: () => Promise<void>
   setLeftPanelOpen: (open: boolean) => void
+
+  // Actions - Saved views
+  setActiveSidePanel: (panelId: string | null) => void
+  saveCurrentView: (category: SavedViewCategory, name?: string) => void
+  openSavedView: (nodeId: string) => Promise<void>
+  renameSavedView: (nodeId: string, newName: string) => void
+  deleteSavedView: (nodeId: string) => void
+  createSavedViewFolder: (category: SavedViewCategory, parentId?: string, name?: string) => void
+  moveSavedView: (nodeId: string, targetParentId: string | null, category?: SavedViewCategory) => void
 }
 
 // ---- Initial tab ----
@@ -175,6 +188,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchResults: [],
   isSearching: false,
 
+  // Saved views
+  savedViews: { classView: [], callstack: [] },
+  activeSidePanel: null,
+
   // ---- Global actions ----
 
   openDatabase: async (dbPath: string) => {
@@ -216,6 +233,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           tabs: restoredTabs,
           activeTabId: activeId,
           tabRestoreQueue: restoreQueue,
+          savedViews: session.savedViews ?? { classView: [], callstack: [] },
           ...defaultTabState(),
         })
 
@@ -237,6 +255,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           tabs: [freshTab],
           activeTabId: freshTabId,
           tabRestoreQueue: new Map(),
+          savedViews: { classView: [], callstack: [] },
           ...defaultTabState(),
         })
         await get().loadClasses()
@@ -751,7 +770,244 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLeftPanelOpen: (open: boolean) => {
     set({ leftPanelOpen: open })
   },
+
+  // ---- Saved Views actions ----
+
+  setActiveSidePanel: (panelId: string | null) => {
+    set({ activeSidePanel: panelId })
+  },
+
+  saveCurrentView: (category: SavedViewCategory, name?: string) => {
+    const state = get()
+    const viewId = `sv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
+    let node: SavedViewNode | null = null
+
+    if (category === 'class-view') {
+      const cls = state.selectedClass
+      if (!cls) return // nothing to save
+      node = {
+        id: viewId,
+        name: name ?? cls.name,
+        type: 'view',
+        viewType: 'class-view',
+        classId: cls.id,
+      }
+    } else if (category === 'callstack') {
+      const graph = state.graph
+      if (!graph) return
+      node = {
+        id: viewId,
+        name: name ?? state.tabs.find(t => t.id === state.activeTabId)?.label ?? 'Callstack',
+        type: 'view',
+        viewType: 'callstack',
+        graph,
+      }
+    }
+
+    if (!node) return
+
+    const sv = get().savedViews
+    if (category === 'class-view') {
+      set({ savedViews: { ...sv, classView: [...sv.classView, node] } })
+    } else {
+      set({ savedViews: { ...sv, callstack: [...sv.callstack, node] } })
+    }
+  },
+
+  openSavedView: async (nodeId: string) => {
+    const sv = get().savedViews
+    const node = findNodeInTree(nodeId, [...sv.classView, ...sv.callstack])
+    if (!node || node.type !== 'view') return
+
+    if (node.viewType === 'class-view' && node.classId) {
+      await get().createTab(node.classId)
+    } else if (node.viewType === 'callstack' && node.graph) {
+      // Create a callstack tab with stored graph
+      const state = get()
+      const currentTabId = state.activeTabId
+      if (currentTabId) {
+        const currentState = captureTabState(state)
+        set({
+          tabs: state.tabs.map(t =>
+            t.id === currentTabId ? { ...t, state: currentState } : t
+          ),
+        })
+      }
+      const newTabId = generateTabId()
+      const newTab: TabInfo = {
+        id: newTabId,
+        label: node.name,
+        state: defaultTabState(),
+      }
+      set({
+        ...defaultTabState(),
+        graph: node.graph,
+        tabs: [...get().tabs, newTab],
+        activeTabId: newTabId,
+      })
+    }
+  },
+
+  renameSavedView: (nodeId: string, newName: string) => {
+    const sv = get().savedViews
+    set({
+      savedViews: {
+        classView: updateNodeInList(sv.classView, nodeId, n => ({ ...n, name: newName })),
+        callstack: updateNodeInList(sv.callstack, nodeId, n => ({ ...n, name: newName })),
+      },
+    })
+  },
+
+  deleteSavedView: (nodeId: string) => {
+    const sv = get().savedViews
+    set({
+      savedViews: {
+        classView: removeNodeFromList(sv.classView, nodeId),
+        callstack: removeNodeFromList(sv.callstack, nodeId),
+      },
+    })
+  },
+
+  createSavedViewFolder: (category: SavedViewCategory, parentId?: string, name?: string) => {
+    const folderId = `svf-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const folder: SavedViewNode = {
+      id: folderId,
+      name: name ?? 'New Folder',
+      type: 'folder',
+      children: [],
+    }
+
+    const sv = get().savedViews
+    if (parentId) {
+      // Insert as child of target folder
+      set({
+        savedViews: {
+          classView: insertIntoFolder(sv.classView, parentId, folder),
+          callstack: insertIntoFolder(sv.callstack, parentId, folder),
+        },
+      })
+    } else {
+      // Insert at root level
+      if (category === 'class-view') {
+        set({ savedViews: { ...sv, classView: [...sv.classView, folder] } })
+      } else {
+        set({ savedViews: { ...sv, callstack: [...sv.callstack, folder] } })
+      }
+    }
+  },
+
+  moveSavedView: (nodeId: string, targetParentId: string | null, category?: SavedViewCategory) => {
+    const sv = get().savedViews
+    // Find and remove the node from its current position
+    let moved: SavedViewNode | null = null
+    const withoutClassView = removeNodeFromList(sv.classView, nodeId, n => { moved = n })
+    if (!moved) {
+      const withoutCallstack = removeNodeFromList(sv.callstack, nodeId, n => { moved = n })
+      if (!moved) return
+      // Node was in callstack tree
+      if (targetParentId) {
+        set({
+          savedViews: {
+            classView: insertIntoFolder(withoutClassView, targetParentId, moved),
+            callstack: insertIntoFolder(withoutCallstack, targetParentId, moved),
+          },
+        })
+      } else {
+        const target = category ?? 'callstack'
+        set({
+          savedViews: {
+            classView: target === 'class-view' ? [...withoutClassView, moved] : withoutClassView,
+            callstack: target === 'callstack' ? [...withoutCallstack, moved] : withoutCallstack,
+          },
+        })
+      }
+    } else {
+      // Node was in classView tree
+      if (targetParentId) {
+        set({
+          savedViews: {
+            classView: insertIntoFolder(withoutClassView, targetParentId, moved),
+            callstack: insertIntoFolder(sv.callstack, targetParentId, moved),
+          },
+        })
+      } else {
+        const target = category ?? 'class-view'
+        set({
+          savedViews: {
+            classView: target === 'class-view' ? [...withoutClassView, moved] : withoutClassView,
+            callstack: target === 'callstack' ? [...sv.callstack, moved] : sv.callstack,
+          },
+        })
+      }
+    }
+  },
 }))
+
+// ============================================================
+// Saved Views — tree manipulation helpers
+// ============================================================
+
+function findNodeInTree(id: string, nodes: SavedViewNode[]): SavedViewNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n
+    if (n.children) {
+      const found = findNodeInTree(id, n.children)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+function updateNodeInList(
+  nodes: SavedViewNode[],
+  id: string,
+  updater: (n: SavedViewNode) => SavedViewNode,
+): SavedViewNode[] {
+  return nodes.map(n => {
+    if (n.id === id) return updater(n)
+    if (n.children) {
+      return { ...n, children: updateNodeInList(n.children, id, updater) }
+    }
+    return n
+  })
+}
+
+function removeNodeFromList(
+  nodes: SavedViewNode[],
+  id: string,
+  onRemove?: (n: SavedViewNode) => void,
+): SavedViewNode[] {
+  const result: SavedViewNode[] = []
+  for (const n of nodes) {
+    if (n.id === id) {
+      onRemove?.(n)
+      continue
+    }
+    if (n.children) {
+      result.push({ ...n, children: removeNodeFromList(n.children, id, onRemove) })
+    } else {
+      result.push(n)
+    }
+  }
+  return result
+}
+
+function insertIntoFolder(
+  nodes: SavedViewNode[],
+  folderId: string,
+  child: SavedViewNode,
+): SavedViewNode[] {
+  return nodes.map(n => {
+    if (n.id === folderId && n.type === 'folder') {
+      return { ...n, children: [...(n.children ?? []), child] }
+    }
+    if (n.children) {
+      return { ...n, children: insertIntoFolder(n.children, folderId, child) }
+    }
+    return n
+  })
+}
 
 // Expose store for E2E testing
 if (typeof window !== 'undefined') {
@@ -893,6 +1149,7 @@ function scheduleSave(): void {
       captureTabState(state),
       state.tabs,
       state.tabRestoreQueue,
+      state.savedViews,
     )
 
     const key = buildSessionKey('vs-browse-db', state.dbPath)

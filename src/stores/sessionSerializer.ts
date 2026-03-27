@@ -3,7 +3,7 @@
 // Only saves IDs; full objects re-fetched on restore
 // ============================================================
 
-import type { TabState, TabInfo, PinnedMember } from '../types/model'
+import type { TabState, TabInfo, PinnedMember, SavedViewTree } from '../types/model'
 import type { SerializedTab, SessionData } from '../../electron/storage/types'
 
 /** Build a session key from plugin + data path */
@@ -38,6 +38,7 @@ export function serializeSession(
   activeTabState: TabState,
   tabs: TabInfo[],
   pendingRestoreQueue?: Map<string, PendingTabRestore>,
+  savedViews?: SavedViewTree,
 ): SessionData {
   const serializedTabs: SerializedTab[] = tabs.map(tab => {
     if (tab.id === activeTabId) {
@@ -60,6 +61,7 @@ export function serializeSession(
     savedAt: new Date().toISOString(),
     activeTabId,
     tabs: serializedTabs,
+    savedViews,
   }
 }
 

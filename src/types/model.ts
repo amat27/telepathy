@@ -67,6 +67,30 @@ export interface CodeGraph {
 }
 
 // ============================================================
+// Saved Views (right panel bookmarks)
+// ============================================================
+
+export type SavedViewCategory = 'class-view' | 'callstack'
+
+/** A node in the saved-views tree (view or folder) */
+export interface SavedViewNode {
+  id: string
+  name: string
+  type: 'view' | 'folder'
+  children?: SavedViewNode[]           // only for folders
+  // --- view-specific data ---
+  viewType?: SavedViewCategory         // which root this belongs to
+  classId?: string                     // for class-view: class to open
+  graph?: CodeGraph                    // for callstack: stored graph
+}
+
+/** Top-level saved views tree (two fixed roots) */
+export interface SavedViewTree {
+  classView: SavedViewNode[]
+  callstack: SavedViewNode[]
+}
+
+// ============================================================
 // Pinned Items
 // ============================================================
 

@@ -1,3 +1,5 @@
+import type { SavedViewTree } from '../../src/types/model'
+
 // ============================================================
 // Telepathy - Session Storage Abstraction
 // Backend-swappable interface (JSON files now, SQLite later)
@@ -25,6 +27,7 @@ export interface SessionData {
   savedAt: string // ISO 8601
   activeTabId: string
   tabs: SerializedTab[]
+  savedViews?: SavedViewTree  // persisted bookmarks
 }
 
 /** Abstract storage backend */

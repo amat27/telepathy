@@ -80,6 +80,8 @@ describe('Tab Management', () => {
       tabs: [{ id: 'tab-init', label: 'New Tab', state: defaultTabState() }],
       activeTabId: 'tab-init',
       tabRestoreQueue: new Map(),
+      savedViews: { classView: [], callstack: [] },
+      activeSidePanel: null,
     })
   })
 
@@ -486,8 +488,277 @@ describe('Pin Feature', () => {
       // Parent class should be auto-pinned (async, wait for it)
       await vi.waitFor(() => {
         expect(getState().pinnedClasses.has('c1')).toBe(true)
-      })
+  })
+})
+
+// ============================================================
+// Saved Views Tests
+// ============================================================
+
+describe('Saved Views', () => {
+  beforeEach(() => {
+    const initial = defaultTabState()
+    useAppStore.setState({
+      ...initial,
+      isConnected: true,
+      dbPath: '/test/db',
+      classes: [],
+      classFilter: '',
+      isLoadingClasses: false,
+      searchQuery: '',
+      searchResults: [],
+      isSearching: false,
+      tabs: [{ id: 'tab-init', label: 'New Tab', state: defaultTabState() }],
+      activeTabId: 'tab-init',
+      tabRestoreQueue: new Map(),
+      savedViews: { classView: [], callstack: [] },
+      activeSidePanel: null,
     })
+  })
+
+  // ---- saveCurrentView (class-view) ----
+
+  it('saves a class-view when a class is selected', () => {
+    setState({
+      selectedClass: {
+        id: 'cls-1',
+        name: 'MyClass',
+        kind: 1,
+        members: [],
+        bases: [],
+        derived: [],
+        location: { file: 'test.cpp', line: 1, column: 1 },
+      } as any,
+    })
+
+    getState().saveCurrentView('class-view')
+    const sv = getState().savedViews
+    expect(sv.classView).toHaveLength(1)
+    expect(sv.classView[0].name).toBe('MyClass')
+    expect(sv.classView[0].classId).toBe('cls-1')
+    expect(sv.classView[0].type).toBe('view')
+    expect(sv.classView[0].viewType).toBe('class-view')
+    // Should not affect callstack
+    expect(sv.callstack).toHaveLength(0)
+  })
+
+  it('does not save class-view when no class is selected', () => {
+    getState().saveCurrentView('class-view')
+    expect(getState().savedViews.classView).toHaveLength(0)
+  })
+
+  // ---- saveCurrentView (callstack) ----
+
+  it('saves a callstack view when graph exists', () => {
+    setState({
+      graph: { nodes: [{ id: 'n1', name: 'func', qualifiedName: 'func', kind: 6 as any, location: { file: 'test.cpp', line: 1, column: 1 } }], edges: [] },
+      tabs: [{ id: 'tab-init', label: 'My Callstack', state: defaultTabState() }],
+      activeTabId: 'tab-init',
+    })
+
+    getState().saveCurrentView('callstack')
+    const sv = getState().savedViews
+    expect(sv.callstack).toHaveLength(1)
+    expect(sv.callstack[0].graph).toBeDefined()
+    expect(sv.callstack[0].viewType).toBe('callstack')
+    expect(sv.classView).toHaveLength(0)
+  })
+
+  // ---- renameSavedView ----
+
+  it('renames a saved view node', () => {
+    setState({
+      savedViews: {
+        classView: [{ id: 'sv-1', name: 'Old Name', type: 'view', viewType: 'class-view', classId: 'c1' }],
+        callstack: [],
+      },
+    })
+
+    getState().renameSavedView('sv-1', 'New Name')
+    expect(getState().savedViews.classView[0].name).toBe('New Name')
+  })
+
+  it('renames a node nested inside a folder', () => {
+    setState({
+      savedViews: {
+        classView: [{
+          id: 'folder-1', name: 'My Folder', type: 'folder',
+          children: [{ id: 'sv-deep', name: 'Deep View', type: 'view', viewType: 'class-view', classId: 'c1' }],
+        }],
+        callstack: [],
+      },
+    })
+
+    getState().renameSavedView('sv-deep', 'Renamed Deep')
+    const folder = getState().savedViews.classView[0]
+    expect(folder.children![0].name).toBe('Renamed Deep')
+  })
+
+  // ---- deleteSavedView ----
+
+  it('deletes a saved view from the tree', () => {
+    setState({
+      savedViews: {
+        classView: [
+          { id: 'sv-1', name: 'Keep', type: 'view', viewType: 'class-view', classId: 'c1' },
+          { id: 'sv-2', name: 'Delete Me', type: 'view', viewType: 'class-view', classId: 'c2' },
+        ],
+        callstack: [],
+      },
+    })
+
+    getState().deleteSavedView('sv-2')
+    const sv = getState().savedViews.classView
+    expect(sv).toHaveLength(1)
+    expect(sv[0].id).toBe('sv-1')
+  })
+
+  it('deletes a folder and its children', () => {
+    setState({
+      savedViews: {
+        classView: [{
+          id: 'folder-1', name: 'Folder', type: 'folder',
+          children: [{ id: 'sv-child', name: 'Child', type: 'view', viewType: 'class-view', classId: 'c1' }],
+        }],
+        callstack: [],
+      },
+    })
+
+    getState().deleteSavedView('folder-1')
+    expect(getState().savedViews.classView).toHaveLength(0)
+  })
+
+  // ---- createSavedViewFolder ----
+
+  it('creates a folder at root level', () => {
+    getState().createSavedViewFolder('class-view', undefined, 'My Folder')
+    const sv = getState().savedViews.classView
+    expect(sv).toHaveLength(1)
+    expect(sv[0].type).toBe('folder')
+    expect(sv[0].name).toBe('My Folder')
+    expect(sv[0].children).toEqual([])
+  })
+
+  it('creates a subfolder inside an existing folder', () => {
+    setState({
+      savedViews: {
+        classView: [{ id: 'folder-1', name: 'Parent', type: 'folder', children: [] }],
+        callstack: [],
+      },
+    })
+
+    getState().createSavedViewFolder('class-view', 'folder-1', 'Sub Folder')
+    const parent = getState().savedViews.classView[0]
+    expect(parent.children).toHaveLength(1)
+    expect(parent.children![0].name).toBe('Sub Folder')
+    expect(parent.children![0].type).toBe('folder')
+  })
+
+  // ---- moveSavedView ----
+
+  it('moves a view into a folder', () => {
+    setState({
+      savedViews: {
+        classView: [
+          { id: 'sv-1', name: 'MyView', type: 'view', viewType: 'class-view', classId: 'c1' },
+          { id: 'folder-1', name: 'Target', type: 'folder', children: [] },
+        ],
+        callstack: [],
+      },
+    })
+
+    getState().moveSavedView('sv-1', 'folder-1')
+    const sv = getState().savedViews.classView
+    expect(sv).toHaveLength(1) // only folder remains at root
+    expect(sv[0].id).toBe('folder-1')
+    expect(sv[0].children).toHaveLength(1)
+    expect(sv[0].children![0].id).toBe('sv-1')
+  })
+
+  it('moves a view to root level (out of folder)', () => {
+    setState({
+      savedViews: {
+        classView: [{
+          id: 'folder-1', name: 'Folder', type: 'folder',
+          children: [{ id: 'sv-1', name: 'Nested', type: 'view', viewType: 'class-view', classId: 'c1' }],
+        }],
+        callstack: [],
+      },
+    })
+
+    getState().moveSavedView('sv-1', null, 'class-view')
+    const sv = getState().savedViews.classView
+    expect(sv).toHaveLength(2) // folder + view at root
+    expect(sv[1].id).toBe('sv-1')
+    expect(sv[0].children).toHaveLength(0)
+  })
+
+  // ---- openSavedView (class-view) ----
+
+  it('opens a class-view saved view in a new tab', async () => {
+    setState({
+      savedViews: {
+        classView: [{ id: 'sv-1', name: 'MyClass', type: 'view', viewType: 'class-view', classId: 'cls-1' }],
+        callstack: [],
+      },
+    })
+
+    const tabsBefore = getState().tabs.length
+    await getState().openSavedView('sv-1')
+    expect(getState().tabs.length).toBe(tabsBefore + 1)
+  })
+
+  // ---- openSavedView (callstack) ----
+
+  it('opens a callstack saved view in a new tab with graph', async () => {
+    const graph = { nodes: [{ id: 'n1', name: 'fn', qualifiedName: 'fn', kind: 6 as any, location: { file: 'test.cpp', line: 1, column: 1 } }], edges: [] }
+    setState({
+      savedViews: {
+        classView: [],
+        callstack: [{ id: 'sv-cs', name: 'Trace', type: 'view', viewType: 'callstack', graph }],
+      },
+    })
+
+    await getState().openSavedView('sv-cs')
+    expect(getState().graph).toEqual(graph)
+    expect(getState().tabs.length).toBe(2) // original + new
+  })
+
+  // ---- activeSidePanel ----
+
+  it('toggles active side panel', () => {
+    expect(getState().activeSidePanel).toBeNull()
+    getState().setActiveSidePanel('saved-views')
+    expect(getState().activeSidePanel).toBe('saved-views')
+    getState().setActiveSidePanel(null)
+    expect(getState().activeSidePanel).toBeNull()
+  })
+
+  // ---- Persistence (savedViews in session) ----
+
+  it('includes savedViews in serialized session', () => {
+    setState({
+      savedViews: {
+        classView: [{ id: 'sv-1', name: 'ClassA', type: 'view', viewType: 'class-view', classId: 'c1' }],
+        callstack: [],
+      },
+    })
+
+    const state = getState()
+    const session = serializeSession(
+      'vs-browse-db',
+      '/test/db',
+      state.activeTabId!,
+      captureTabState(state),
+      state.tabs,
+      state.tabRestoreQueue,
+      state.savedViews,
+    )
+    expect(session.savedViews).toBeDefined()
+    expect(session.savedViews!.classView).toHaveLength(1)
+    expect(session.savedViews!.classView[0].classId).toBe('c1')
+  })
+})
 
     it('unpins a previously pinned member', () => {
       const member = { id: 'm1', name: 'doStuff', qualifiedName: 'c1::doStuff', kind: 'member_function' as any, location: { file: 'test.cpp', line: 5, column: 0 } }
