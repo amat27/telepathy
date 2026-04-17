@@ -21,6 +21,11 @@ export function App() {
   const { themeId, setThemeId } = useTheme()
   const { presetId, setPresetId } = usePreset()
 
+  // Clean up legacy spike key (one-time)
+  useEffect(() => {
+    try { localStorage.removeItem('telepathy-layout') } catch {}
+  }, [])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

@@ -1,0 +1,295 @@
+/* ============================================================
+   Three-Part Shell — left rail, center, right rail
+   Each Part can collapse to a 28px Rail with rotated label.
+   ============================================================ */
+
+@import 'dockview-react/dist/styles/dockview.css';
+
+/* ----- Telepathy <-> dockview theme bridge -----
+   Maps dockview's --dv-* CSS variables to Telepathy tokens so
+   tabs, sashes, and drop overlays inherit active theme & preset. */
+.dockview-theme-telepathy {
+  /* Surfaces */
+  --dv-group-view-background-color: var(--bg-secondary);
+  --dv-tabs-and-actions-container-background-color: var(--bg-surface);
+
+  /* Active group, visible tab (= current panel) */
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-primary);
+  --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
+
+  /* Active group, hidden tabs */
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-surface);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-secondary);
+
+  /* Inactive groups */
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-secondary);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-surface);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
+
+  /* Dividers / sashes */
+  --dv-tab-divider-color: var(--border-color);
+  --dv-separator-border: var(--border-color);
+  --dv-paneview-header-border-color: var(--border-color);
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: var(--text-accent);
+
+  /* Drop overlay (the plus-sign drop guide bg) */
+  --dv-drag-over-background-color: color-mix(in srgb, var(--text-accent) 25%, transparent);
+  --dv-drag-over-border-color: var(--text-accent);
+
+  /* Active panel outline */
+  --dv-paneview-active-outline-color: var(--text-accent);
+
+  /* Misc */
+  --dv-tabs-and-actions-container-height: var(--tab-bar-h, 32px);
+  --dv-tab-font-size: var(--fs-sm);
+  --dv-border-radius: 0px;
+  --dv-icon-hover-background-color: var(--bg-hover);
+  --dv-floating-box-shadow: var(--shadow-lg);
+  --dv-tabs-container-scrollbar-color: var(--text-muted);
+}
+
+/* Preset variants */
+:root[data-preset="modern"] .dockview-theme-telepathy {
+  --dv-border-radius: var(--radius-sm);
+  --dv-tabs-and-actions-container-height: 36px;
+}
+
+:root[data-preset="minimal"] .dockview-theme-telepathy {
+  --dv-border-radius: 0px;
+  --dv-tabs-and-actions-container-height: 28px;
+}
+
+/* ----- Three-Part Shell layout ----- */
+
+.three-part-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* Each Part: a container with its own dockview instance */
+.shell-part {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.shell-part--left,
+.shell-part--right {
+  flex: 0 0 auto;
+}
+
+.shell-part--center {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.shell-part--left { border-right: var(--border-width) solid var(--border-color); }
+.shell-part--right { border-left: var(--border-width) solid var(--border-color); }
+
+/* Resize handle on inner edge of side parts */
+.shell-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 5;
+  background: transparent;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.shell-resize-handle:hover,
+.shell-resize-handle--active {
+  background: var(--text-accent);
+}
+.shell-part--left .shell-resize-handle { right: -2px; }
+.shell-part--right .shell-resize-handle { left: -2px; }
+
+/* ----- Rail (collapsed Part) ----- */
+
+.shell-rail {
+  width: var(--sidebar-tab-w, 28px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: var(--bg-secondary);
+  border-right: var(--border-width) solid var(--border-color);
+  flex: 0 0 auto;
+}
+.shell-rail--right {
+  border-right: none;
+  border-left: var(--border-width) solid var(--border-color);
+}
+
+.shell-rail-toggle {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: var(--border-width) solid transparent;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.shell-rail-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.shell-rail-views {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.shell-rail-view {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.shell-rail-view:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.shell-rail-view::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--text-accent);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.shell-rail--right .shell-rail-view::before {
+  left: auto;
+  right: 0;
+}
+
+/* Empty Part (no views) drop target hint */
+.shell-empty-part {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-style: italic;
+  padding: var(--space-4);
+  text-align: center;
+  border: 2px dashed transparent;
+  border-radius: var(--radius-md);
+  margin: var(--space-3);
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.shell-empty-part--drag-over {
+  border-color: var(--text-accent);
+  background: color-mix(in srgb, var(--text-accent) 8%, transparent);
+  color: var(--text-secondary);
+}
+
+/* PartDockview host */
+.part-dockview-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+.part-dockview-host > .dv-dockview {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Panel body inside dockview */
+.part-panel-body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+/* Move-menu button on dockview tab actions */
+.shell-move-menu {
+  position: relative;
+}
+.shell-move-menu-trigger {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.shell-move-menu-trigger:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.shell-move-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  min-width: 160px;
+  z-index: 100;
+  padding: var(--space-1) 0;
+  animation: dropdown-in var(--dur-fast) var(--ease-out);
+}
+.shell-move-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.shell-move-menu-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.shell-move-menu-item:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+.shell-move-menu-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: var(--space-1) 0;
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

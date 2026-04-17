@@ -29,6 +29,9 @@ export {
   FolderOpen,
   FileText,
   Code2,
+  Network,
+  Bookmark,
+  GripVertical,
 
   // Panels
   PanelRightClose,
