@@ -5,10 +5,12 @@
 import { SearchBar } from './components/SearchBar/SearchBar'
 import { TabBar } from './components/TabBar/TabBar'
 import { CallstackDialog } from './components/CallstackDialog/CallstackDialog'
-import { ThemeMenu } from './components/ThemeMenu/ThemeMenu'
+import { AppearanceMenu } from './components/ThemeMenu/ThemeMenu'
 import { MainLayout } from './components/Layout/Layout'
+import { ArrowLeft, ArrowRight, Menu, Brain, X as XIcon } from './components/icons'
 import { useAppStore } from './stores/appStore'
 import { useTheme } from './hooks/useTheme'
+import { usePreset } from './hooks/usePreset'
 import { useEffect, useState } from 'react'
 import './styles/global.css'
 import './App.css'
@@ -17,6 +19,7 @@ export function App() {
   const { navBackStack, navForwardStack, goBack, goForward, createTab, closeTab, activeTabId, saveOrUpdateView, sessionError, dismissSessionError } = useAppStore()
   const [showCallstack, setShowCallstack] = useState(false)
   const { themeId, setThemeId } = useTheme()
+  const { presetId, setPresetId } = usePreset()
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -73,8 +76,8 @@ export function App() {
     <div className="app">
       <header className="app-header">
         <div className="app-title">
-          <span className="app-logo">&#x1F9E0;</span>
-          Telepathy
+          <Brain size={18} strokeWidth={2} className="app-logo" />
+          <span className="app-title-text">Telepathy</span>
         </div>
         <div className="nav-buttons">
           <button
@@ -82,16 +85,18 @@ export function App() {
             onClick={goBack}
             disabled={navBackStack.length === 0}
             title="Go back (Alt+Left)"
+            aria-label="Go back"
           >
-            &#x2190;
+            <ArrowLeft size={16} strokeWidth={1.75} />
           </button>
           <button
             className="nav-btn"
             onClick={goForward}
             disabled={navForwardStack.length === 0}
             title="Go forward (Alt+Right)"
+            aria-label="Go forward"
           >
-            &#x2192;
+            <ArrowRight size={16} strokeWidth={1.75} />
           </button>
         </div>
         <SearchBar />
@@ -100,17 +105,23 @@ export function App() {
           className="nav-btn"
           onClick={() => setShowCallstack(true)}
           title="Load callstack (Ctrl+Shift+V)"
+          aria-label="Load callstack"
         >
-          &#x2630;
+          <Menu size={16} strokeWidth={1.75} />
         </button>
-        <ThemeMenu currentThemeId={themeId} onSelect={setThemeId} />
+        <AppearanceMenu
+          currentThemeId={themeId}
+          onSelectTheme={setThemeId}
+          currentPresetId={presetId}
+          onSelectPreset={setPresetId}
+        />
       </header>
       <TabBar />
       {sessionError && (
         <div className="session-error-banner">
           <span className="session-error-text">{sessionError}</span>
-          <button className="session-error-dismiss" onClick={dismissSessionError} title="Dismiss">
-            &times;
+          <button className="session-error-dismiss" onClick={dismissSessionError} title="Dismiss" aria-label="Dismiss error">
+            <XIcon size={14} strokeWidth={2} />
           </button>
         </div>
       )}

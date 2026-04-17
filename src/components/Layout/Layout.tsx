@@ -11,6 +11,7 @@ import { GraphView } from '../GraphView/GraphView'
 import { CodePreview } from '../CodePreview/CodePreview'
 import { SidePanel } from '../SidePanel/SidePanel'
 import { useAppStore } from '../../stores/appStore'
+import { ChevronRight } from '../icons'
 import './Layout.css'
 
 export function MainLayout() {

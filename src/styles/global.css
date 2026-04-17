@@ -35,6 +35,68 @@
 
   --panel-radius: 6px;
   --node-radius: 8px;
+
+  /* ---- Shape tokens (overridden by presets) ---- */
+  /* Defaults match the "refined" preset */
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 24px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+
+  /* Borders */
+  --border-width: 1px;
+  --border-width-accent: 2px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-focus: 0 0 0 2px var(--border-focus);
+
+  /* Typography */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-xl: 17px;
+
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --letter-spacing-tight: 0;
+  --letter-spacing-wide: 0.04em;
+
+  /* Layout sizes */
+  --header-h: 40px;
+  --tab-h: 28px;
+  --tab-bar-h: 32px;
+  --sidebar-tab-w: 28px;
+  --button-h-sm: 24px;
+  --button-h-md: 28px;
+
+  /* Motion */
+  --dur-fast: 0.1s;
+  --dur-base: 0.15s;
+  --dur-slow: 0.25s;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Node / edge visual (graph) */
+  --node-border-width: 2px;
+  --node-hover-glow: 0 0 12px rgba(137, 180, 250, 0.2);
+  --edge-width: 1.5px;
+  --edge-width-strong: 2px;
 }
 
 * {

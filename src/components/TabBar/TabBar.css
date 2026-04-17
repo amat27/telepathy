@@ -1,15 +1,15 @@
 /* ============================================================
-   Tab Bar Styles
+   Tab Bar — shape-token driven, with preset-specific variants
    ============================================================ */
 
 .tab-bar {
   display: flex;
   align-items: center;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: var(--border-width) solid var(--border-color);
   flex-shrink: 0;
-  height: 32px;
-  padding: 0 4px;
+  height: var(--tab-bar-h);
+  padding: 0 var(--space-1);
   gap: 2px;
   overflow: hidden;
 }
@@ -24,27 +24,25 @@
   min-width: 0;
   scrollbar-width: none;
 }
-
-.tab-list::-webkit-scrollbar {
-  display: none;
-}
+.tab-list::-webkit-scrollbar { display: none; }
 
 .tab-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 4px 4px 0 0;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: transparent;
-  border: 1px solid transparent;
+  border: var(--border-width) solid transparent;
   border-bottom: none;
   cursor: pointer;
   min-width: 80px;
   max-width: 200px;
-  height: 28px;
+  height: var(--tab-h);
   flex-shrink: 0;
-  transition: background 0.1s;
+  transition: background var(--dur-fast) var(--ease-out);
   user-select: none;
+  position: relative;
 }
 
 .tab-item:hover {
@@ -54,10 +52,7 @@
 .tab-item.active {
   background: var(--bg-primary);
   border-color: var(--border-color);
-  position: relative;
 }
-
-/* Cover the bottom border for active tab */
 .tab-item.active::after {
   content: '';
   position: absolute;
@@ -74,36 +69,41 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
   line-height: 1;
 }
 
 .tab-item.active .tab-label {
   color: var(--text-primary);
+  font-weight: var(--fw-medium);
 }
 
-.tab-close {
-  display: flex;
+.tab-close,
+.tab-save {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
   padding: 0;
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
-  font-size: 14px;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.1s, background 0.1s;
+  transition: opacity var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
 }
 
 .tab-item:hover .tab-close,
-.tab-item.active .tab-close {
+.tab-item.active .tab-close,
+.tab-item:hover .tab-save,
+.tab-item.active .tab-save {
   opacity: 1;
 }
 
@@ -112,69 +112,106 @@
   color: var(--text-primary);
 }
 
-/* ---- Save Button ---- */
-
-.tab-save {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border: none;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.1s, background 0.1s, color 0.1s;
-}
-
-.tab-item:hover .tab-save,
-.tab-item.active .tab-save {
-  opacity: 1;
-}
-
-/* Linked save button: always visible with accent color */
+/* Linked save button */
 .tab-save.tab-save-linked {
   opacity: 0.7;
   color: var(--color-class);
 }
-
 .tab-item:hover .tab-save.tab-save-linked,
 .tab-item.active .tab-save.tab-save-linked {
   opacity: 1;
 }
-
 .tab-save:hover {
   background: var(--bg-active);
   color: var(--color-class);
 }
 
 /* ---- New Tab Button ---- */
-
 .tab-new {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--button-h-sm);
+  height: var(--button-h-sm);
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
-  font-size: 16px;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.1s, color 0.1s;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-
 .tab-new:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+/* ============================================================
+   Preset variants
+   ============================================================ */
+
+/* Modern: chip-style tabs (rounded pill, detached bottom) */
+:root[data-preset="modern"] .tab-bar {
+  padding: var(--space-1) var(--space-2);
+  gap: var(--space-1);
+  border-bottom-color: var(--border-color);
+  align-items: flex-end;
+}
+:root[data-preset="modern"] .tab-item {
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid transparent;
+  height: calc(var(--tab-h) - 2px);
+  padding: 0 var(--space-3);
+}
+:root[data-preset="modern"] .tab-item.active {
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+:root[data-preset="modern"] .tab-item.active::after {
+  display: none;
+}
+:root[data-preset="modern"] .tab-new {
+  border-radius: var(--radius-md);
+}
+
+/* Minimal: no top rounding, accent bar under active tab */
+:root[data-preset="minimal"] .tab-bar {
+  padding: 0 var(--space-3);
+  gap: var(--space-4);
+  border-bottom-color: var(--border-color);
+}
+:root[data-preset="minimal"] .tab-item {
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  padding: 0 0;
+  min-width: 60px;
+  height: var(--tab-h);
+}
+:root[data-preset="minimal"] .tab-item:hover {
+  background: transparent;
+}
+:root[data-preset="minimal"] .tab-item .tab-label {
+  text-transform: none;
+  letter-spacing: var(--letter-spacing-tight);
+}
+:root[data-preset="minimal"] .tab-item:hover .tab-label {
+  color: var(--text-primary);
+}
+:root[data-preset="minimal"] .tab-item.active {
+  background: transparent;
+  border: none;
+}
+:root[data-preset="minimal"] .tab-item.active::after {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--text-accent);
+}
+:root[data-preset="minimal"] .tab-new {
+  border-radius: var(--radius-sm);
 }

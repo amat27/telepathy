@@ -1,8 +1,7 @@
 /* ============================================================
-   Side Panel — VS-style vertical tab strip + content area
+   Side Panel — token-driven, preset-aware
    ============================================================ */
 
-/* Container: content area (optional) + tab strip (always) */
 .side-panel-container {
   display: flex;
   flex-direction: row;
@@ -10,36 +9,37 @@
   flex-shrink: 0;
 }
 
-/* ---- Vertical tab strip (always visible) ---- */
+/* ---- Vertical tab strip ---- */
 .side-panel-tab-strip {
-  width: 28px;
-  min-width: 28px;
+  width: var(--sidebar-tab-w);
+  min-width: var(--sidebar-tab-w);
   background: var(--bg-secondary);
-  border-left: 1px solid var(--border-color);
+  border-left: var(--border-width) solid var(--border-color);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 4px;
+  padding-top: var(--space-1);
   gap: 2px;
   overflow: hidden;
 }
 
-/* Each tab button: rotated text */
 .side-panel-tab {
   writing-mode: vertical-rl;
   text-orientation: mixed;
   background: none;
   border: none;
-  border-left: 2px solid transparent;
+  border-left: var(--border-width-accent) solid transparent;
   cursor: pointer;
-  padding: 10px 4px;
+  padding: var(--space-3) var(--space-1);
   color: var(--text-muted);
   font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 400;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-normal);
   letter-spacing: 0.3px;
   white-space: nowrap;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition: color var(--dur-base) var(--ease-out),
+              background var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out);
   user-select: none;
 }
 .side-panel-tab:hover {
@@ -48,7 +48,7 @@
 }
 .side-panel-tab.active {
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   border-left-color: var(--border-focus);
   background: var(--bg-hover);
 }
@@ -57,7 +57,7 @@
   pointer-events: none;
 }
 
-/* ---- Content area (shown when a tab is active) ---- */
+/* ---- Content area ---- */
 .side-panel-content {
   width: 260px;
   min-width: 200px;
@@ -65,7 +65,7 @@
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
-  border-left: 1px solid var(--border-color);
+  border-left: var(--border-width) solid var(--border-color);
   overflow: hidden;
 }
 
@@ -73,18 +73,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-4);
   background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-color);
-  min-height: 30px;
+  border-bottom: var(--border-width) solid var(--border-color);
+  min-height: 32px;
   user-select: none;
 }
 .side-panel-content-title {
   font-family: var(--font-ui);
-  font-weight: 600;
-  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-xs);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--letter-spacing-wide);
   color: var(--text-secondary);
 }
 
@@ -98,23 +98,23 @@
    ============================================================ */
 
 .saved-views {
-  padding: 4px 0;
+  padding: var(--space-1) 0;
   user-select: none;
 }
 
-/* Root group (Class View / Call Stack) */
 .sv-root {
   margin-bottom: 2px;
 }
 .sv-root-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
   cursor: pointer;
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-sm);
   color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .sv-root-header:hover {
   background: var(--bg-hover);
@@ -129,51 +129,52 @@
   text-align: right;
 }
 
-/* Chevron arrows */
 .sv-chevron {
   font-size: 10px;
   width: 12px;
   text-align: center;
   color: var(--text-muted);
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Children container */
 .sv-children {
-  /* no extra indent; depth-based padding on .sv-node */
+  /* depth-based padding on .sv-node */
 }
 
-/* Empty placeholder */
 .sv-empty {
-  padding: 4px 16px 4px 32px;
+  padding: var(--space-1) var(--space-5) var(--space-1) var(--space-6);
   color: var(--text-muted);
   font-style: italic;
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 
-/* Individual tree node (view or folder) */
 .sv-node {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: var(--space-1);
+  padding: 3px var(--space-3);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .sv-node:hover {
   background: var(--bg-hover);
 }
 
-/* Icons */
 .sv-icon {
   flex-shrink: 0;
   font-size: 12px;
   width: 16px;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .sv-icon-folder {
-  filter: saturate(0.7);
+  color: var(--text-muted);
 }
 .sv-icon-class-view {
   color: var(--color-class);
@@ -182,57 +183,55 @@
   color: var(--color-function);
 }
 
-/* Node label */
 .sv-node-label {
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 .sv-view .sv-node-label {
   color: var(--text-primary);
 }
 .sv-folder .sv-node-label {
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
 }
 
-/* Inline rename input */
 .sv-rename-input {
   flex: 1;
   background: var(--bg-primary);
-  border: 1px solid var(--border-focus);
+  border: var(--border-width) solid var(--border-focus);
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: 12px;
-  padding: 1px 4px;
-  border-radius: 2px;
+  font-size: var(--fs-sm);
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-sm);
   outline: none;
   min-width: 0;
 }
 
-/* Context menu */
 .sv-context-menu {
   position: fixed;
   z-index: 1000;
   background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 4px 0;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) 0;
   min-width: 140px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
 }
 .sv-context-menu button {
   display: block;
   width: 100%;
-  padding: 5px 12px;
+  padding: var(--space-2) var(--space-4);
   background: none;
   border: none;
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   text-align: left;
   cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .sv-context-menu button:hover {
   background: var(--bg-hover);
@@ -242,4 +241,50 @@
 }
 .sv-ctx-danger:hover {
   background: rgba(243, 139, 168, 0.1) !important;
+}
+
+/* ============================================================
+   Preset variants
+   ============================================================ */
+
+/* Modern: wider strip, horizontal label style (still vertical for space) */
+:root[data-preset="modern"] .side-panel-tab-strip {
+  padding-top: var(--space-2);
+  gap: var(--space-1);
+}
+:root[data-preset="modern"] .side-panel-tab {
+  border-left: none;
+  border-right: 2px solid transparent;
+  margin-right: -1px;
+  padding: var(--space-4) var(--space-2);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+:root[data-preset="modern"] .side-panel-tab.active {
+  border-right-color: var(--border-focus);
+  background: var(--bg-surface);
+}
+:root[data-preset="modern"] .side-panel-content {
+  background: var(--bg-primary);
+}
+:root[data-preset="modern"] .side-panel-content-header {
+  background: var(--bg-secondary);
+}
+
+/* Minimal: no background swap on active, thin accent line */
+:root[data-preset="minimal"] .side-panel-tab {
+  border-left: var(--border-width-accent) solid transparent;
+  padding: var(--space-3) var(--space-1);
+}
+:root[data-preset="minimal"] .side-panel-tab:hover {
+  background: transparent;
+  color: var(--text-primary);
+}
+:root[data-preset="minimal"] .side-panel-tab.active {
+  background: transparent;
+  border-left-color: var(--text-accent);
+  font-weight: var(--fw-bold);
+}
+:root[data-preset="minimal"] .side-panel-content-header {
+  background: transparent;
+  border-bottom-color: var(--border-color);
 }

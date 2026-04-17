@@ -1,5 +1,5 @@
 /* ============================================================
-   Callstack Dialog — overlay + modal
+   Callstack Dialog — overlay + modal (tokenized)
    ============================================================ */
 
 .callstack-overlay {
@@ -11,6 +11,12 @@
   justify-content: center;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(2px);
+  animation: overlay-in var(--dur-base) var(--ease-out);
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .callstack-dialog {
@@ -19,45 +25,53 @@
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
+  animation: dialog-in var(--dur-base) var(--ease-out);
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .callstack-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 16px 20px 8px;
+  padding: var(--space-4) var(--space-5) var(--space-2);
 }
 
 .callstack-header h3 {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
 }
 
 .callstack-hint {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 
 .callstack-textarea {
   flex: 1;
   min-height: 240px;
-  margin: 0 12px;
-  padding: 12px;
+  margin: 0 var(--space-3);
+  padding: var(--space-3);
   background: var(--bg-primary);
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-md);
   font-family: var(--font-mono, 'Cascadia Code', 'Fira Code', monospace);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   resize: vertical;
   outline: none;
+  transition: border-color var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .callstack-textarea:focus {
@@ -72,17 +86,19 @@
 .callstack-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 20px 16px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5) var(--space-4);
 }
 
 .callstack-btn {
-  padding: 6px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 13px;
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              opacity var(--dur-fast) var(--ease-out);
 }
 
 .callstack-btn.cancel {
@@ -98,7 +114,7 @@
   background: var(--text-accent);
   color: var(--bg-primary);
   border-color: var(--text-accent);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .callstack-btn.submit:hover {
@@ -108,4 +124,27 @@
 .callstack-btn.submit:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ============================================================
+   Preset overrides
+   ============================================================ */
+
+/* Modern: rounder buttons + focus glow */
+:root[data-preset="modern"] .callstack-btn {
+  border-radius: var(--radius-lg);
+}
+:root[data-preset="modern"] .callstack-textarea:focus {
+  box-shadow: var(--shadow-focus);
+}
+
+/* Minimal: square buttons, no shadow on dialog */
+:root[data-preset="minimal"] .callstack-dialog {
+  box-shadow: var(--shadow-md);
+}
+:root[data-preset="minimal"] .callstack-btn {
+  border-radius: 0;
+}
+:root[data-preset="minimal"] .callstack-btn.submit {
+  font-weight: var(--fw-bold);
 }

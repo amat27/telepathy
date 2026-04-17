@@ -1,36 +1,45 @@
+/* ============================================================
+   SearchBar — token-driven, preset-aware
+   ============================================================ */
+
 .search-bar {
   position: relative;
   flex: 1;
-  max-width: 500px;
+  max-width: 520px;
 }
 
 .search-input-wrap {
   display: flex;
   align-items: center;
+  gap: var(--space-2);
   background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 0 10px;
-  height: 32px;
-  transition: border-color 0.15s;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-3);
+  height: var(--button-h-md);
+  transition: border-color var(--dur-base) var(--ease-out),
+              box-shadow var(--dur-base) var(--ease-out),
+              background var(--dur-base) var(--ease-out);
 }
 .search-input-wrap:focus-within {
   border-color: var(--border-focus);
+  background: var(--bg-primary);
 }
 
 .search-icon {
-  font-size: 14px;
-  margin-right: 6px;
-  opacity: 0.5;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .search-input {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-family: var(--font-ui);
 }
 .search-input::placeholder {
@@ -47,6 +56,7 @@
   border-top-color: var(--text-accent);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
 }
 @keyframes spin {
   to { transform: rotate(360deg); }
@@ -54,25 +64,27 @@
 
 .search-results {
   position: absolute;
-  top: 36px;
+  top: calc(100% + var(--space-1));
   left: 0;
   right: 0;
   background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--panel-radius);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-md);
   max-height: 400px;
   overflow-y: auto;
   z-index: 100;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-lg);
+  animation: dropdown-in var(--dur-base) var(--ease-out);
 }
 
 .search-result-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: var(--border-width) solid var(--border-color);
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .search-result-item:last-child {
   border-bottom: none;
@@ -87,9 +99,9 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   font-family: var(--font-mono);
   flex-shrink: 0;
 }
@@ -104,7 +116,7 @@
 
 .result-name {
   flex: 1;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -112,6 +124,36 @@
 
 .result-file {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   flex-shrink: 0;
+}
+
+/* ============================================================
+   Preset variants
+   ============================================================ */
+
+/* Modern: taller rounded search, subtle inner glow on focus */
+:root[data-preset="modern"] .search-input-wrap {
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+}
+:root[data-preset="modern"] .search-input-wrap:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--border-focus) 18%, transparent);
+}
+:root[data-preset="modern"] .kind-badge {
+  border-radius: var(--radius-md);
+}
+
+/* Minimal: sharp rect, accent underline on focus instead of border recolor */
+:root[data-preset="minimal"] .search-input-wrap {
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+:root[data-preset="minimal"] .search-input-wrap:focus-within {
+  box-shadow: inset 0 -2px 0 0 var(--text-accent);
+  border-color: var(--border-color);
+  background: var(--bg-surface);
+}
+:root[data-preset="minimal"] .kind-badge {
+  border-radius: var(--radius-sm);
 }

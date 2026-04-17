@@ -1,3 +1,7 @@
+/* ============================================================
+   SymbolTree — tokenized + preset-aware
+   ============================================================ */
+
 .symbol-tree {
   display: flex;
   flex-direction: column;
@@ -11,9 +15,10 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 12px;
+  gap: var(--space-3);
   color: var(--text-muted);
   background: var(--bg-secondary);
+  padding: var(--space-5);
 }
 .empty-icon {
   font-size: 48px;
@@ -21,45 +26,49 @@
 }
 
 .open-db-btn {
-  padding: 8px 20px;
+  padding: var(--space-2) var(--space-5);
   background: var(--text-accent);
   color: var(--bg-primary);
   border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
 }
 .open-db-btn:hover {
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .tree-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-bottom: 1px solid var(--border-color);
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-color);
 }
 
 .tree-filter {
   flex: 1;
   background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 4px 8px;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   outline: none;
+  transition: border-color var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
 }
 .tree-filter:focus {
-  border-color: var(--border-focus);
+  border-color: var(--border-focus, var(--text-accent));
 }
 
 .tree-count {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -69,11 +78,15 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 12px;
-  padding: 2px 4px;
-  border-radius: 3px;
+  font-size: var(--fs-sm);
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-sm);
   line-height: 1;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .panel-collapse-btn:hover {
   background: var(--bg-hover);
@@ -92,9 +105,10 @@
 }
 
 .tree-loading {
-  padding: 20px;
+  padding: var(--space-5);
   text-align: center;
   color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .tree-item {
@@ -104,12 +118,13 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
   cursor: pointer;
-  border-left: 3px solid transparent;
+  border-left: var(--border-width-accent) solid transparent;
   box-sizing: border-box;
   will-change: transform;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .tree-item:hover {
   background: var(--bg-hover);
@@ -124,7 +139,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .item-count {
@@ -132,4 +147,39 @@
   font-size: 10px;
   min-width: 20px;
   text-align: right;
+}
+
+/* ============================================================
+   Preset overrides
+   ============================================================ */
+
+/* Modern: focus glow on filter, lifted CTA */
+:root[data-preset="modern"] .tree-filter:focus {
+  box-shadow: var(--shadow-focus);
+}
+:root[data-preset="modern"] .open-db-btn {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+:root[data-preset="modern"] .open-db-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+:root[data-preset="modern"] .tree-item.selected {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* Minimal: square edges, no fills */
+:root[data-preset="minimal"] .open-db-btn {
+  border-radius: 0;
+  font-weight: var(--fw-bold);
+}
+:root[data-preset="minimal"] .tree-item.selected {
+  background: transparent;
+  border-left-width: 2px;
+  color: var(--text-primary);
+  font-weight: var(--fw-bold);
+}
+:root[data-preset="minimal"] .tree-filter {
+  border-radius: 0;
 }

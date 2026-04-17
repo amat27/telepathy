@@ -6,6 +6,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { SymbolKind } from '../../types/model'
 import type { SymbolSummary } from '../../types/model'
+import { Search } from '../icons'
 import './SearchBar.css'
 
 const kindIcon: Record<string, string> = {
@@ -68,7 +69,7 @@ export function SearchBar() {
   return (
     <div className="search-bar">
       <div className="search-input-wrap">
-        <span className="search-icon">&#x1F50D;</span>
+        <Search size={14} strokeWidth={1.75} className="search-icon" />
         <input
           ref={inputRef}
           type="text"

@@ -1,3 +1,7 @@
+/* ============================================================
+   GraphView — node & edge styling, token-driven, preset-aware
+   ============================================================ */
+
 .graph-view {
   width: 100%;
   height: 100%;
@@ -11,7 +15,7 @@
   justify-content: center;
   height: 100%;
   color: var(--text-muted);
-  gap: 12px;
+  gap: var(--space-4);
   background: var(--bg-primary);
 }
 .placeholder-icon {
@@ -19,24 +23,25 @@
   opacity: 0.3;
 }
 
-/* ---- Compact Class Node (base / derived) ---- */
+/* ---- Compact Class Node ---- */
 
 .class-node {
   background: var(--bg-surface);
-  border: 2px solid var(--color-class);
-  border-radius: var(--node-radius);
+  border: var(--node-border-width) solid var(--color-class);
+  border-radius: var(--radius-lg);
   min-width: 160px;
   cursor: pointer;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition: box-shadow var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out),
+              transform var(--dur-base) var(--ease-out);
 }
 .class-node.struct {
   border-color: var(--color-struct);
 }
 .class-node:hover {
-  box-shadow: 0 0 12px rgba(137, 180, 250, 0.2);
+  box-shadow: var(--node-hover-glow);
 }
 
-/* Unresolved callstack nodes: dimmed appearance, not clickable */
 .class-node.unresolved {
   border-color: var(--border-color);
   opacity: 0.55;
@@ -45,6 +50,7 @@
 .class-node.unresolved:hover {
   box-shadow: none;
 }
+
 .unresolved-badge {
   display: inline-flex;
   align-items: center;
@@ -53,7 +59,7 @@
   height: 16px;
   border-radius: 50%;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   background: var(--border-color);
   color: var(--text-muted);
   flex-shrink: 0;
@@ -63,8 +69,8 @@
 .class-node-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
 }
 
 .node-kind-badge {
@@ -73,9 +79,9 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
   font-family: var(--font-mono);
   flex-shrink: 0;
 }
@@ -83,21 +89,21 @@
 .node-kind-badge.struct { background: var(--color-struct); color: #1e1e2e; }
 
 .node-label {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .class-node-footer {
-  padding: 4px 12px 6px;
+  padding: var(--space-1) var(--space-4) var(--space-2);
   font-size: 10px;
   color: var(--text-muted);
-  border-top: 1px solid var(--border-color);
+  border-top: var(--border-width) solid var(--border-color);
 }
 
-/* React Flow handle styling */
+/* React Flow handles */
 .class-node .react-flow__handle,
 .expanded-class-node .react-flow__handle {
   width: 8px;
@@ -106,12 +112,12 @@
   border: 2px solid var(--bg-surface);
 }
 
-/* ---- Expanded Class Node (selected, Sourcetrail-style) ---- */
+/* ---- Expanded Class Node ---- */
 
 .expanded-class-node {
   background: var(--bg-surface);
-  border: 2px solid var(--text-accent);
-  border-radius: var(--node-radius);
+  border: var(--node-border-width) solid var(--text-accent);
+  border-radius: var(--radius-lg);
   min-width: 280px;
   max-width: 380px;
   box-shadow: 0 0 20px rgba(137, 180, 250, 0.25);
@@ -125,41 +131,41 @@
 .expanded-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-color);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: var(--border-width) solid var(--border-color);
 }
 .expanded-header .node-label {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--fs-lg);
 }
 .member-count-badge {
   font-size: 10px;
   color: var(--text-muted);
   background: var(--bg-secondary);
-  padding: 2px 6px;
-  border-radius: 10px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
   font-family: var(--font-mono);
 }
 
 .expanded-empty {
-  padding: 8px 14px;
-  font-size: 11px;
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   font-style: italic;
 }
 
 .expanded-section {
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: var(--border-width) solid var(--border-color);
 }
 .expanded-section:last-child {
   border-bottom: none;
 }
 
 .section-label {
-  padding: 4px 14px;
+  padding: var(--space-1) var(--space-5);
   font-size: 9px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: var(--text-muted);
@@ -169,12 +175,12 @@
 .graph-member-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 14px;
-  font-size: 11px;
+  gap: var(--space-2);
+  padding: 3px var(--space-5);
+  font-size: var(--fs-xs);
   font-family: var(--font-mono);
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .graph-member-row:hover {
   background: var(--bg-hover);
@@ -191,11 +197,11 @@
 
 .gm-kind {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   min-width: 26px;
   text-align: center;
   padding: 1px 3px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 .gm-kind.kind-member_function,
@@ -238,10 +244,11 @@
   cursor: pointer;
   font-size: 11px;
   opacity: 0.3;
-  transition: opacity 0.15s, transform 0.15s;
+  transition: opacity var(--dur-base) var(--ease-out),
+              transform var(--dur-base) var(--ease-out);
   padding: 0;
   flex-shrink: 0;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   filter: grayscale(1);
 }
 .pin-btn:hover {
@@ -259,7 +266,6 @@
   font-size: 9px;
 }
 
-/* Show pin button on hover for member rows */
 .graph-member-row .pin-btn {
   opacity: 0;
 }
@@ -273,18 +279,60 @@
   opacity: 1;
 }
 
-/* Pinned member highlight */
 .graph-member-row.member-pinned {
   background: rgba(250, 179, 135, 0.08);
-  border-left: 2px solid var(--color-member);
-  padding-left: 12px;
+  border-left: var(--border-width-accent) solid var(--color-member);
+  padding-left: calc(var(--space-5) - var(--border-width-accent));
 }
 
-/* Pinned class border glow */
 .class-node.pinned {
   border-color: var(--text-accent);
   box-shadow: 0 0 8px rgba(250, 179, 135, 0.3);
 }
 .expanded-class-node.pinned {
   box-shadow: 0 0 20px rgba(250, 179, 135, 0.25), 0 0 8px rgba(250, 179, 135, 0.15);
+}
+
+/* ============================================================
+   Preset variants
+   ============================================================ */
+
+/* Modern: more rounded nodes, softer shadows, subtle bg elevation */
+:root[data-preset="modern"] .class-node,
+:root[data-preset="modern"] .expanded-class-node {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+:root[data-preset="modern"] .class-node:hover {
+  box-shadow: var(--shadow-md), 0 0 0 1px color-mix(in srgb, var(--text-accent) 25%, transparent);
+  transform: translateY(-1px);
+}
+:root[data-preset="modern"] .expanded-class-node {
+  box-shadow: var(--shadow-md);
+}
+:root[data-preset="modern"] .node-kind-badge,
+:root[data-preset="modern"] .gm-kind {
+  border-radius: var(--radius-md);
+}
+
+/* Minimal: near-square nodes, no glow, accent on hover only */
+:root[data-preset="minimal"] .class-node,
+:root[data-preset="minimal"] .expanded-class-node {
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+:root[data-preset="minimal"] .class-node:hover {
+  box-shadow: none;
+  border-color: var(--text-accent);
+}
+:root[data-preset="minimal"] .expanded-class-node {
+  box-shadow: none;
+  border-width: var(--node-border-width);
+}
+:root[data-preset="minimal"] .node-kind-badge,
+:root[data-preset="minimal"] .gm-kind {
+  border-radius: var(--radius-sm);
+}
+:root[data-preset="minimal"] .member-count-badge {
+  border-radius: var(--radius-sm);
 }

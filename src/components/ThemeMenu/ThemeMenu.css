@@ -1,5 +1,6 @@
 /* ============================================================
-   ThemeMenu - Dropdown theme picker styles
+   AppearanceMenu - Theme + Preset dropdown picker
+   Uses shape tokens (refined / modern / minimal) for spacing/radius.
    ============================================================ */
 
 .theme-menu {
@@ -8,44 +9,60 @@
 }
 
 .theme-toggle-btn {
-  font-size: 15px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
 }
 
 .theme-dropdown {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + var(--space-2));
   right: 0;
-  width: 200px;
+  width: 260px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 6px 0;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2) 0;
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
+  animation: dropdown-in var(--dur-base) var(--ease-out);
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .theme-group-label {
-  padding: 6px 12px 4px;
-  font-size: 10px;
-  font-weight: 700;
+  padding: var(--space-2) var(--space-4) var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--letter-spacing-wide);
   color: var(--text-muted);
+}
+
+.theme-divider {
+  height: 1px;
+  margin: var(--space-1) var(--space-3);
+  background: var(--border-color);
+  opacity: 0.7;
 }
 
 .theme-option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 6px 12px;
+  padding: var(--space-2) var(--space-4);
   background: none;
   border: none;
   color: var(--text-primary);
-  font-size: 12px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
   cursor: pointer;
   text-align: left;
-  transition: background 0.1s;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .theme-option:hover {
   background: var(--bg-hover);
@@ -54,27 +71,104 @@
   background: var(--bg-active);
 }
 
+/* ---- Theme swatch ---- */
 .theme-swatch {
   display: flex;
-  width: 20px;
+  width: 22px;
   height: 14px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  border: 1px solid var(--border-color);
+  border: var(--border-width) solid var(--border-color);
   flex-shrink: 0;
 }
-.swatch-bg {
-  flex: 1;
-}
-.swatch-accent {
-  flex: 1;
-}
+.swatch-bg { flex: 1; }
+.swatch-accent { flex: 1; }
 
 .theme-name {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .theme-check {
   color: var(--text-accent);
-  font-size: 12px;
+  flex-shrink: 0;
 }
+
+/* ---- Preset option (taller, with description) ---- */
+.preset-option {
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+}
+.preset-option .theme-name {
+  gap: 2px;
+}
+.preset-name {
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+}
+.preset-desc {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Preset preview swatch (shape hint, not color hint) ---- */
+.preset-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  margin-top: 2px;
+}
+
+.preset-preview-bar {
+  position: absolute;
+  top: 5px;
+  left: 4px;
+  right: 4px;
+  height: 3px;
+  background: var(--text-accent);
+  opacity: 0.75;
+}
+.preset-preview-dot {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--text-secondary);
+  opacity: 0.7;
+}
+
+/* Refined: slight rounding, thin border */
+.preset-preview-refined {
+  border-radius: 4px;
+}
+.preset-preview-refined .preset-preview-bar { border-radius: 1px; }
+.preset-preview-refined .preset-preview-dot { border-radius: 50%; }
+
+/* Modern: rounder, soft shadow */
+.preset-preview-modern {
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+.preset-preview-modern .preset-preview-bar { border-radius: 2px; }
+.preset-preview-modern .preset-preview-dot { border-radius: 50%; }
+
+/* Minimal: near-square, hard edges */
+.preset-preview-minimal {
+  border-radius: 1px;
+  box-shadow: none;
+}
+.preset-preview-minimal .preset-preview-bar { border-radius: 0; }
+.preset-preview-minimal .preset-preview-dot { border-radius: 0; }

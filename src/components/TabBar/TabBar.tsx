@@ -5,6 +5,7 @@
 import { useCallback } from 'react'
 import { useAppStore, isTabDirty } from '../../stores/appStore'
 import type { SavedViewCategory } from '../../types/model'
+import { Save, Plus, X } from '../icons'
 import './TabBar.css'
 
 export function TabBar() {
@@ -74,19 +75,18 @@ export function TabBar() {
                   className={`tab-save ${isLinked ? 'tab-save-linked' : ''}`}
                   onClick={(e) => handleSave(e, tab.id)}
                   title={isLinked ? (dirty ? 'Save changes (Ctrl+S)' : 'Saved') : 'Save to views (Ctrl+S)'}
+                  aria-label="Save view"
                 >
-                  {/* Floppy disk SVG icon */}
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M13.5 1H3.5L1 3.5V13.5C1 14.33 1.67 15 2.5 15H13.5C14.33 15 15 14.33 15 13.5V2.5C15 1.67 14.33 1 13.5 1ZM8 13C6.62 13 5.5 11.88 5.5 10.5S6.62 8 8 8S10.5 9.12 10.5 10.5S9.38 13 8 13ZM11 5H3V2H11V5Z"/>
-                  </svg>
+                  <Save size={12} strokeWidth={2} />
                 </button>
               )}
               <button
                 className="tab-close"
                 onClick={(e) => handleTabClose(e, tab.id)}
                 title="Close tab"
+                aria-label="Close tab"
               >
-                &times;
+                <X size={12} strokeWidth={2.25} />
               </button>
             </div>
           )
@@ -96,8 +96,9 @@ export function TabBar() {
         className="tab-new"
         onClick={handleNewTab}
         title="New tab (Ctrl+T)"
+        aria-label="New tab"
       >
-        +
+        <Plus size={14} strokeWidth={2} />
       </button>
     </div>
   )

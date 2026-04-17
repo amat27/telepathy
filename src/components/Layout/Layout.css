@@ -1,3 +1,7 @@
+/* ============================================================
+   Layout — main split + collapse strips (tokenized)
+   ============================================================ */
+
 .main-layout {
   flex: 1;
   overflow: hidden;
@@ -9,7 +13,7 @@
   overflow: hidden;
 }
 
-/* Expand strip when left panel is collapsed */
+/* Expand strip when a side panel is collapsed */
 .panel-expand-strip {
   width: 24px;
   min-width: 24px;
@@ -20,15 +24,43 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: background 0.15s;
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+  color: var(--text-muted);
 }
 .panel-expand-left {
-  border-right: 1px solid var(--border-color);
+  border-right: var(--border-width) solid var(--border-color);
 }
 .panel-expand-strip:hover {
   background: var(--bg-hover);
+  color: var(--text-primary);
 }
 .expand-icon {
-  color: var(--text-muted);
-  font-size: 12px;
+  color: inherit;
+  font-size: var(--fs-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================
+   Preset overrides
+   ============================================================ */
+
+/* Modern: a touch wider, subtle inset accent on hover */
+:root[data-preset="modern"] .panel-expand-strip {
+  width: 28px;
+  min-width: 28px;
+}
+:root[data-preset="modern"] .panel-expand-strip:hover {
+  background: color-mix(in srgb, var(--text-accent) 8%, var(--bg-secondary));
+}
+
+/* Minimal: thinner strip, accent line on hover */
+:root[data-preset="minimal"] .panel-expand-strip {
+  width: 20px;
+  min-width: 20px;
+}
+:root[data-preset="minimal"] .panel-expand-left:hover {
+  box-shadow: inset -2px 0 0 var(--text-accent);
 }

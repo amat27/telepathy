@@ -1,22 +1,33 @@
 // ============================================================
-// ThemeMenu - Dropdown theme picker
+// AppearanceMenu - Unified dropdown for Theme (colors) + Preset (shape)
+// Replaces the former ThemeMenu. Lives under the old file to keep
+// import paths stable.
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
 import { themes } from '../../styles/themes'
 import type { ThemeDefinition } from '../../styles/themes'
+import { presets } from '../../styles/presets'
+import type { PresetDefinition, PresetId } from '../../styles/presets'
+import { Palette, Check } from '../icons'
 import './ThemeMenu.css'
 
-interface ThemeMenuProps {
+interface AppearanceMenuProps {
   currentThemeId: string
-  onSelect: (themeId: string) => void
+  onSelectTheme: (themeId: string) => void
+  currentPresetId: PresetId
+  onSelectPreset: (presetId: PresetId) => void
 }
 
-export function ThemeMenu({ currentThemeId, onSelect }: ThemeMenuProps) {
+export function AppearanceMenu({
+  currentThemeId,
+  onSelectTheme,
+  currentPresetId,
+  onSelectPreset,
+}: AppearanceMenuProps) {
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
@@ -28,7 +39,6 @@ export function ThemeMenu({ currentThemeId, onSelect }: ThemeMenuProps) {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
@@ -46,29 +56,44 @@ export function ThemeMenu({ currentThemeId, onSelect }: ThemeMenuProps) {
       <button
         className="nav-btn theme-toggle-btn"
         onClick={() => setOpen(!open)}
-        title="Change theme"
+        title="Appearance"
+        aria-label="Appearance"
       >
-        &#x1F3A8;
+        <Palette size={16} strokeWidth={1.75} />
       </button>
 
       {open && (
         <div className="theme-dropdown">
-          <div className="theme-group-label">Dark</div>
+          {/* Preset section */}
+          <div className="theme-group-label">Style</div>
+          {presets.map(p => (
+            <PresetOption
+              key={p.id}
+              preset={p}
+              isActive={p.id === currentPresetId}
+              onSelect={() => { onSelectPreset(p.id); }}
+            />
+          ))}
+
+          <div className="theme-divider" />
+
+          {/* Theme section */}
+          <div className="theme-group-label">Dark Theme</div>
           {darkThemes.map(t => (
             <ThemeOption
               key={t.id}
               theme={t}
               isActive={t.id === currentThemeId}
-              onSelect={() => { onSelect(t.id); setOpen(false) }}
+              onSelect={() => { onSelectTheme(t.id); }}
             />
           ))}
-          <div className="theme-group-label">Light</div>
+          <div className="theme-group-label">Light Theme</div>
           {lightThemes.map(t => (
             <ThemeOption
               key={t.id}
               theme={t}
               isActive={t.id === currentThemeId}
-              onSelect={() => { onSelect(t.id); setOpen(false) }}
+              onSelect={() => { onSelectTheme(t.id); }}
             />
           ))}
         </div>
@@ -96,7 +121,46 @@ function ThemeOption({
         <span className="swatch-accent" style={{ background: theme.vars['--text-accent'] }} />
       </span>
       <span className="theme-name">{theme.name}</span>
-      {isActive && <span className="theme-check">&#x2713;</span>}
+      {isActive && <Check size={14} className="theme-check" strokeWidth={2.25} />}
     </button>
   )
+}
+
+function PresetOption({
+  preset,
+  isActive,
+  onSelect,
+}: {
+  preset: PresetDefinition
+  isActive: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      className={`theme-option preset-option ${isActive ? 'active' : ''}`}
+      onClick={onSelect}
+      title={preset.description}
+    >
+      <span className={`preset-preview preset-preview-${preset.id}`}>
+        <span className="preset-preview-bar" />
+        <span className="preset-preview-dot" />
+      </span>
+      <span className="theme-name">
+        <span className="preset-name">{preset.name}</span>
+        <span className="preset-desc">{preset.description}</span>
+      </span>
+      {isActive && <Check size={14} className="theme-check" strokeWidth={2.25} />}
+    </button>
+  )
+}
+
+// ---- Backward-compat shim: keep old <ThemeMenu> exports working ----
+// Will be removed once App.tsx is updated.
+interface ThemeMenuProps {
+  currentThemeId: string
+  onSelect: (themeId: string) => void
+}
+export function ThemeMenu(_props: ThemeMenuProps) {
+  // Kept as a no-op placeholder; App now uses AppearanceMenu directly.
+  return null
 }

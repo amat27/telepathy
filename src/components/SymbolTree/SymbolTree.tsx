@@ -9,6 +9,7 @@ import { useAppStore } from '../../stores/appStore'
 import { SymbolKind } from '../../types/model'
 import type { SymbolSummary } from '../../types/model'
 import * as api from '../../api'
+import { FolderOpen, ChevronLeft } from '../icons'
 import './SymbolTree.css'
 
 const ITEM_HEIGHT = 28 // px per tree item (matches CSS: padding 4px + content ~20px)
@@ -45,7 +46,7 @@ export function SymbolTree({ onCollapse }: { onCollapse?: () => void } = {}) {
   if (!isConnected) {
     return (
       <div className="symbol-tree-empty">
-        <div className="empty-icon">&#128218;</div>
+        <div className="empty-icon"><FolderOpen size={42} strokeWidth={1.5} /></div>
         <p>No database loaded</p>
         <button className="open-db-btn" onClick={handleOpenDb}>
           Open Browse.VC.db
@@ -70,7 +71,8 @@ export function SymbolTree({ onCollapse }: { onCollapse?: () => void } = {}) {
             className="panel-collapse-btn"
             onClick={onCollapse}
             title="Collapse panel"
-          >&#x276E;</button>
+            aria-label="Collapse panel"
+          ><ChevronLeft size={14} /></button>
         )}
       </div>
 

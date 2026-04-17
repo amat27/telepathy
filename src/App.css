@@ -1,3 +1,7 @@
+/* ============================================================
+   App shell — uses shape tokens; preset-specific tweaks below.
+   ============================================================ */
+
 .app {
   display: flex;
   flex-direction: column;
@@ -8,10 +12,11 @@
 .app-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 6px 16px;
+  gap: var(--space-4);
+  padding: 0 var(--space-5);
+  height: var(--header-h);
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: var(--border-width) solid var(--border-color);
   flex-shrink: 0;
   -webkit-app-region: drag;
 }
@@ -19,16 +24,22 @@
 .app-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  font-size: 15px;
+  gap: var(--space-2);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-lg);
   color: var(--text-primary);
   -webkit-app-region: no-drag;
   user-select: none;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.app-title-text {
+  line-height: 1;
 }
 
 .app-logo {
-  font-size: 20px;
+  color: var(--text-accent);
+  flex-shrink: 0;
 }
 
 .header-spacer {
@@ -44,36 +55,40 @@
 }
 
 .nav-btn {
-  width: 28px;
-  height: 26px;
+  width: var(--button-h-md);
+  height: var(--button-h-md);
   padding: 0;
-  font-size: 14px;
   line-height: 1;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: var(--text-primary);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.1s;
-  display: flex;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .nav-btn:hover:not(:disabled) {
   background: var(--bg-hover);
-  border-color: var(--border-color);
+  color: var(--text-primary);
 }
 .nav-btn:active:not(:disabled) {
   background: var(--bg-surface);
 }
 .nav-btn:disabled {
   color: var(--text-muted);
-  opacity: 0.3;
+  opacity: 0.35;
   cursor: default;
 }
 
-/* Ensure search bar is not draggable */
-.app-header .search-bar {
+/* Ensure interactive elements are not draggable */
+.app-header .search-bar,
+.app-header .nav-buttons,
+.app-header .nav-btn,
+.app-header .theme-menu {
   -webkit-app-region: no-drag;
 }
 
@@ -81,12 +96,12 @@
 .session-error-banner {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
   background: var(--error-bg, #3c1618);
-  border-bottom: 1px solid var(--error-border, #6e2b2e);
+  border-bottom: var(--border-width) solid var(--error-border, #6e2b2e);
   color: var(--error-text, #f5a0a0);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   flex-shrink: 0;
 }
 .session-error-text {
@@ -96,11 +111,54 @@
   background: transparent;
   border: none;
   color: inherit;
-  font-size: 16px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 2px 4px;
   opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 .session-error-dismiss:hover {
   opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================================
+   Preset-specific tweaks for app chrome
+   ============================================================ */
+
+/* Modern: ghost buttons with subtle bg on hover, softer header border */
+:root[data-preset="modern"] .nav-btn {
+  border-radius: var(--radius-md);
+}
+:root[data-preset="modern"] .nav-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: transparent;
+}
+:root[data-preset="modern"] .app-header {
+  border-bottom-color: var(--border-color);
+}
+
+/* Minimal: flat buttons, accent hover as bottom bar */
+:root[data-preset="minimal"] .nav-btn {
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+:root[data-preset="minimal"] .nav-btn:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text-primary);
+}
+:root[data-preset="minimal"] .nav-btn:hover:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 2px;
+  height: 1.5px;
+  background: var(--text-accent);
+}
+:root[data-preset="minimal"] .app-header {
+  border-bottom-width: 1px;
 }
